@@ -256,14 +256,16 @@ where
     }
 
     pub fn lte(&mut self, f: Node, g: Node) -> Node {
+        // f <= g is the complement of g < f, mirroring `gte` (which is the complement
+        // of f < g). Taking `veq` and only short-circuiting when it is the constant-one
+        // node is wrong: `veq` is a diagram, not a boolean, so `x == y` being true on
+        // *some* assignments never trips that check, and the equal case was dropped for
+        // every non-degenerate pair -- `x <= y` computed `x < y`.
         match (f, g) {
             (Node::Value(fnode), Node::Value(gnode)) => {
-                let resulteq = self.veq(fnode, gnode);
-                if resulteq == self.mdd().one() {
-                    return Node::Bool(self.mdd().one());
-                }
-                let resultlt = self.vlt(fnode, gnode);
-                Node::Bool(resultlt)
+                let resultgt = self.vlt(gnode, fnode);
+                let result = self.mdd_mut().not(resultgt);
+                Node::Bool(result)
             }
             _ => Node::Bool(self.mdd().undet()),
         }

@@ -438,3 +438,44 @@ fn test_zmdd_dot() {
         assert!(dot.contains(&format!("label=\"{}\"", label)), "missing {}", label);
     }
 }
+
+/// Every comparison must agree with plain integer comparison at every point of the
+/// state space. Checked by pinning both variables to a single state with point-mass
+/// probabilities and reading the boolean diagram back.
+///
+/// This is what catches an operator that quietly implements a neighbouring one:
+/// `le` used to return `lt` unless `eq` happened to be the constant-true node, so
+/// `x <= y` was `x < y` for every non-degenerate pair.
+#[test]
+fn test_comparisons_agree_with_integers_pointwise() {
+    let states = 3usize;
+    type Build = fn(&MddNode<i32>, &MddNode<i32>) -> MddNode<i32>;
+    let ops: [(&str, Build, fn(usize, usize) -> bool); 6] = [
+        ("<", |a, b| a.lt(b), |i, j| i < j),
+        ("<=", |a, b| a.le(b), |i, j| i <= j),
+        (">", |a, b| a.gt(b), |i, j| i > j),
+        (">=", |a, b| a.ge(b), |i, j| i >= j),
+        ("==", |a, b| a.eq(b), |i, j| i == j),
+        ("!=", |a, b| a.ne(b), |i, j| i != j),
+    ];
+    for (name, build, truth) in ops {
+        let mut mgr: MddMgr<i32> = MddMgr::new();
+        let x = mgr.defvar("x", states);
+        let y = mgr.defvar("y", states);
+        let mut node = build(&x, &y);
+        for i in 0..states {
+            for j in 0..states {
+                let pv: HashMap<String, Vec<f64>> = [("x", i), ("y", j)]
+                    .iter()
+                    .map(|&(nm, s)| {
+                        let mut e = vec![0.0; states];
+                        e[s] = 1.0;
+                        (nm.to_string(), e)
+                    })
+                    .collect();
+                let got = node.prob(&pv, &[1]) > 0.5;
+                assert_eq!(got, truth(i, j), "x {name} y at x={i}, y={j}");
+            }
+        }
+    }
+}
