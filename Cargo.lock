@@ -10,35 +10,35 @@ checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 
 [[package]]
 name = "relib-bdd"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "relib-common",
 ]
 
 [[package]]
 name = "relib-bss"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "relib-bdd",
 ]
 
 [[package]]
 name = "relib-common"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "wyhash",
 ]
 
 [[package]]
 name = "relib-mdd"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "relib-common",
 ]
 
 [[package]]
 name = "relib-mss"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "relib-mdd",
 ]
