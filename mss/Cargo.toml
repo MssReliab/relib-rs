@@ -15,7 +15,7 @@ rust-version.workspace = true
 name = "mss"
 
 [dependencies]
-mddcore = { path = "../mddcore", version = "0.14.0", package = "relib-mdd" }
+mddcore = { path = "../mddcore", version = "0.14.1", package = "relib-mdd" }
 
 [package.metadata.docs.rs]
 all-features = true

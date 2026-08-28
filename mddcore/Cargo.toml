@@ -15,7 +15,7 @@ rust-version.workspace = true
 name = "mddcore"
 
 [dependencies]
-common = { path = "../common", version = "0.14.0", package = "relib-common" }
+common = { path = "../common", version = "0.14.1", package = "relib-common" }
 
 [package.metadata.docs.rs]
 all-features = true
