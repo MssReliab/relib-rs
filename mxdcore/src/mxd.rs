@@ -407,6 +407,27 @@ impl MxdManager {
         self.nodes.len() - self.freelist.len()
     }
 
+    /// Number of distinct non-terminal nodes reachable from `root`.
+    ///
+    /// The size of one diagram, as opposed to [`live_node_count`](Self::live_node_count),
+    /// which is the size of the whole arena. Nodes shared with other diagrams are
+    /// counted here, once.
+    pub fn node_count(&self, root: NodeId) -> usize {
+        let mut seen = BddHashSet::default();
+        let mut stack = vec![root];
+        let mut n = 0;
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            if let Some(Node::NonTerminal(f)) = self.get_node(&id) {
+                n += 1;
+                stack.extend(f.iter());
+            }
+        }
+        n
+    }
+
     /// `(headers, node slots)`.
     #[inline]
     pub fn size(&self) -> (usize, usize) {

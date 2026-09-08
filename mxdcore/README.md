@@ -47,7 +47,8 @@ Results are cross-checked against MEDDLY (via Meddly.jl) on a committed fixture
 of randomised cases, comparing cardinality and full membership — not node
 counts, which cannot agree given the different node layout.
 
-Still to come: the driver for the non-monotone (repair/restart) case studies.
+A non-monotone case study is in `examples/boundary_nonmonotone.rs`, with results
+and a comparison against MEDDLY in `results/`.
 
 Part of the Rust engine behind the
 [`relibmss`](https://github.com/MssReliab/relibmss) Python package.

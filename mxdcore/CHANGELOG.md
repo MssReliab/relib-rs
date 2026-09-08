@@ -26,4 +26,8 @@
 
 - **Cardinalities are `u128`, not `u64`.** A relation lives in `Ω × Ω`, and the multi-state case studies reach `|Ω| = 3^22 ≈ 3.1e10`, so `|Ω|²` overflows 64 bits by a wide margin on exactly the systems this crate exists for. MEDDLY returns a `double` here and goes approximate at that size; these counts stay exact.
 
+- **`node_count(root)`** — the size of one diagram, as opposed to `live_node_count`, which is the size of the whole arena.
+- **`examples/boundary_nonmonotone.rs`** — the boundary operator on `distribution_system(n)` (Sedlacek et al. 2021, RESS 215:107824 §4.2), a genuinely non-monotone multi-state system where producing more can lower φ, so minimal path/cut vectors do not apply. Mirrors `MDDMinsol/scripts/boundary_nonmonotone.jl`. φ depends only on the component sum, so the level sets are built directly as boolean MDDs and no value-carrying diagram is needed.
+- **Agrees with MEDDLY on all 42 `(n, j)` rows** of that case study, `n = 2..22` — see `results/README.md`. `test_distribution_system.rs` pins the small end plus the closed form `|B_1| = n²`, and checks the system really is non-monotone rather than taking it on trust.
+
 Not yet published.
