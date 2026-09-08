@@ -36,7 +36,7 @@ struct Case {
     singletons: Vec<(Vec<i32>, Vec<i32>)>,
     lower: Vec<Vec<i32>>,
     upper: Vec<Vec<i32>>,
-    cards: Vec<(String, u64)>,
+    cards: Vec<(String, u128)>,
     rel_members: Vec<(String, Transition)>,
     set_members: Vec<(String, StateVec)>,
 }

@@ -225,8 +225,8 @@ impl MxdManager {
     }
 
     /// The size of the state space, `|Ω| = Π n_i`.
-    pub fn state_space_size(&self) -> u64 {
-        self.vars.iter().map(|v| v.domain as u64).product()
+    pub fn state_space_size(&self) -> u128 {
+        self.vars.iter().map(|v| v.domain as u128).product()
     }
 
     fn new_nonterminal(&mut self, header: HeaderId, nodes: &[NodeId]) -> NodeId {

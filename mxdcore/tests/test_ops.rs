@@ -114,8 +114,8 @@ fn test_set_ops_match_oracle() {
         assert_eq!(read_set(&m, not), &universe - &a);
         assert_eq!(read_set(&m, diff), &a - &b);
 
-        assert_eq!(m.cardinality_set(and), (&a & &b).len() as u64);
-        assert_eq!(m.cardinality_set(not), (&universe - &a).len() as u64);
+        assert_eq!(m.cardinality_set(and), (&a & &b).len() as u128);
+        assert_eq!(m.cardinality_set(not), (&universe - &a).len() as u128);
     }
 }
 
@@ -157,8 +157,8 @@ fn test_rel_ops_match_oracle() {
         assert_eq!(read_rel(&m, not), &universe - &a);
         assert_eq!(read_rel(&m, diff), &a - &b);
 
-        assert_eq!(m.cardinality_relation(and), (&a & &b).len() as u64);
-        assert_eq!(m.cardinality_relation(not), (&universe - &a).len() as u64);
+        assert_eq!(m.cardinality_relation(and), (&a & &b).len() as u128);
+        assert_eq!(m.cardinality_relation(not), (&universe - &a).len() as u128);
     }
 }
 

@@ -110,7 +110,7 @@ fn test_cross_matches_oracle() {
         assert_eq!(read_rel(&m, x), product(&a, &b));
         assert_eq!(
             m.cardinality_relation(x),
-            (a.len() * b.len()) as u64,
+            (a.len() * b.len()) as u128,
             "|cross(A,B)| = |A|·|B|"
         );
     }
@@ -190,7 +190,7 @@ fn test_transpose_matches_oracle() {
         let t = m.transpose(fr);
 
         assert_eq!(read_rel(&m, t), swapped(&r));
-        assert_eq!(m.cardinality_relation(t), r.len() as u64);
+        assert_eq!(m.cardinality_relation(t), r.len() as u128);
 
         let back = m.transpose(t);
         assert_eq!(back, fr, "transpose is an involution");

@@ -124,13 +124,19 @@ impl MxdManager {
     }
 
     /// Number of state vectors in the set rooted at `node`.
-    pub fn cardinality_set(&self, node: NodeId) -> u64 {
+    ///
+    /// `u128` rather than `u64`: a relation lives in `Ω × Ω`, and `|Ω|` reaches
+    /// `3^22 ≈ 3.1e10` in the multi-state case studies, so `|Ω|²` overflows 64
+    /// bits well inside the range of interest. MEDDLY returns a `double` here and
+    /// so goes approximate at that size; this stays exact.
+    pub fn cardinality_set(&self, node: NodeId) -> u128 {
         let mut memo = BddHashMap::default();
         self.count(node, self.num_vars() as i64 - 1, false, &mut memo)
     }
 
-    /// Number of transitions in the relation rooted at `node`.
-    pub fn cardinality_relation(&self, node: NodeId) -> u64 {
+    /// Number of transitions in the relation rooted at `node`. See
+    /// [`cardinality_set`](Self::cardinality_set) on the width.
+    pub fn cardinality_relation(&self, node: NodeId) -> u128 {
         let mut memo = BddHashMap::default();
         self.count(node, self.num_vars() as i64 - 1, true, &mut memo)
     }
@@ -140,8 +146,8 @@ impl MxdManager {
         node: NodeId,
         level: i64,
         want_rel: bool,
-        memo: &mut BddHashMap<(NodeId, i64), u64>,
-    ) -> u64 {
+        memo: &mut BddHashMap<(NodeId, i64), u128>,
+    ) -> u128 {
         if node == self.zero() {
             return 0;
         }
@@ -161,7 +167,7 @@ impl MxdManager {
             // A skipped level multiplies by `n` either way, but for different
             // reasons: `n` don't-care values for a set, `n` diagonal entries for a
             // relation. Both leave the sub-diagram unchanged.
-            None => n as u64 * self.count(node, level - 1, want_rel, memo),
+            None => n as u128 * self.count(node, level - 1, want_rel, memo),
         };
         memo.insert((node, level), total);
         total

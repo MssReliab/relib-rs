@@ -203,7 +203,7 @@ fn test_full_relation_memo_survives_recycling() {
         "the full relation must not be answered by a recycled slot"
     );
     assert!(
-        m.enumerate_relation(again).len() as u64 == omega * omega,
+        m.enumerate_relation(again).len() as u128 == omega * omega,
         "and it must really contain every pair"
     );
 }

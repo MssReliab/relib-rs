@@ -146,7 +146,7 @@ fn test_every_operation_across_shapes() {
             assert_eq!(read_rel(&m, x), expected_x, "{ctx}: cross");
             assert_eq!(
                 m.cardinality_relation(x),
-                (a.len() * b.len()) as u64,
+                (a.len() * b.len()) as u128,
                 "{ctx}: |cross|"
             );
 
@@ -216,4 +216,27 @@ fn read_set(m: &MxdManager, node: NodeId) -> HashSet<StateVec> {
 
 fn read_rel(m: &MxdManager, node: NodeId) -> HashSet<Transition> {
     m.enumerate_relation(node).into_iter().collect()
+}
+
+/// Cardinalities are `u128` because the multi-state case studies reach `|Ω| = 3^22`,
+/// and a relation lives in `Ω × Ω`. `3^44` overflows `u64` by a factor of ~50, so a
+/// 64-bit count would silently wrap on exactly the systems this crate is for.
+#[test]
+fn test_cardinality_beyond_64_bits() {
+    let mut m = mgr(&vec![3usize; 22]);
+    let omega = m.state_space_size();
+    assert_eq!(omega, 3u128.pow(22));
+    assert!(omega * omega > u64::MAX as u128, "the case must actually overflow u64");
+
+    let all = m.one();
+    let full = m.cross(all, all);
+    assert_eq!(
+        m.cardinality_relation(full),
+        3u128.pow(44),
+        "|Ω × Ω| must be exact, not wrapped"
+    );
+
+    // The identity over the same space, for contrast.
+    let id = m.mxd_singleton(&vec![Src::Any; 22], &vec![Dst::Same; 22]);
+    assert_eq!(m.cardinality_relation(id), omega);
 }
