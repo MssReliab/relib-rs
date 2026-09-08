@@ -469,7 +469,21 @@ where
         }
     }
 
+
+    /// Panics unless `node` belongs to this manager's forest.
+    ///
+    /// Same hazard as [`MddNode::assert_same_forest`]: node ids are only meaningful
+    /// in the forest that issued them, and two managers issue the same ids.
+    #[track_caller]
+    fn assert_owns(&self, node: &MddNode<V>) {
+        assert!(
+            std::rc::Rc::as_ptr(&self.mdd) == node.parent.as_ptr(),
+            "this MddNode comes from a different manager"
+        );
+    }
+
     pub fn and(&self, nodes: &[MddNode<V>]) -> MddNode<V> {
+        nodes.iter().for_each(|n| self.assert_owns(n));
         let result = {
             let mut mdd = self.mdd.borrow_mut();
             let mut result = mdd.one();
@@ -482,6 +496,7 @@ where
     }
 
     pub fn or(&self, nodes: &[MddNode<V>]) -> MddNode<V> {
+        nodes.iter().for_each(|n| self.assert_owns(n));
         let result = {
             let mut mdd = self.mdd.borrow_mut();
             let mut result = mdd.zero();
@@ -494,6 +509,7 @@ where
     }
 
     pub fn min(&self, nodes: &[MddNode<V>]) -> MddNode<V> {
+        nodes.iter().for_each(|n| self.assert_owns(n));
         let result = {
             let mut mdd = self.mdd.borrow_mut();
             let mut result = nodes[0].node;
@@ -506,6 +522,7 @@ where
     }
 
     pub fn max(&self, nodes: &[MddNode<V>]) -> MddNode<V> {
+        nodes.iter().for_each(|n| self.assert_owns(n));
         let result = {
             let mut mdd = self.mdd.borrow_mut();
             let mut result = nodes[0].node;
@@ -745,7 +762,24 @@ where
         mdd.dot_string(&self.node)
     }
 
+    /// Panics unless `other` came from the same forest as `self`.
+    ///
+    /// Handles carry only a node id, and two managers number their nodes the same
+    /// way — so mixing them would not fail, it would compute on the wrong diagram
+    /// and return a plausible wrong answer. The Python layer in `relibmss` has
+    /// always checked this; Rust callers were unprotected.
+    #[track_caller]
+    fn assert_same_forest(&self, other: &Self) {
+        assert!(
+            Weak::ptr_eq(&self.parent, &other.parent),
+            "these {} handles come from different managers; a node id is only \
+             meaningful in the forest that created it",
+            "MddNode"
+        );
+    }
+
     pub fn add(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.add(self.node, other.node);
@@ -754,6 +788,7 @@ where
     }
 
     pub fn sub(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.sub(self.node, other.node);
@@ -762,6 +797,7 @@ where
     }
 
     pub fn mul(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.mul(self.node, other.node);
@@ -770,6 +806,7 @@ where
     }
 
     pub fn div(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.div(self.node, other.node);
@@ -778,6 +815,7 @@ where
     }
 
     pub fn min(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.min(self.node, other.node);
@@ -786,6 +824,7 @@ where
     }
 
     pub fn max(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.max(self.node, other.node);
@@ -794,6 +833,7 @@ where
     }
 
     pub fn eq(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.eq(self.node, other.node);
@@ -802,6 +842,7 @@ where
     }
 
     pub fn ne(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.neq(self.node, other.node);
@@ -810,6 +851,7 @@ where
     }
 
     pub fn lt(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.lt(self.node, other.node);
@@ -818,6 +860,7 @@ where
     }
 
     pub fn le(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.lte(self.node, other.node);
@@ -826,6 +869,7 @@ where
     }
 
     pub fn gt(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.gt(self.node, other.node);
@@ -834,6 +878,7 @@ where
     }
 
     pub fn ge(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.gte(self.node, other.node);
@@ -842,6 +887,7 @@ where
     }
 
     pub fn and(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.and(self.node, other.node);
@@ -850,6 +896,7 @@ where
     }
 
     pub fn or(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.or(self.node, other.node);
@@ -858,6 +905,7 @@ where
     }
 
     pub fn xor(&self, other: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(other);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.xor(self.node, other.node);
@@ -874,6 +922,8 @@ where
     }
 
     pub fn ite(&self, then: &MddNode<V>, els: &MddNode<V>) -> MddNode<V> {
+        self.assert_same_forest(then);
+        self.assert_same_forest(els);
         let mddmgr = self.parent.upgrade().unwrap();
         let mut mdd = mddmgr.borrow_mut();
         let node = mdd.ite(self.node, then.node, els.node);

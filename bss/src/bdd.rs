@@ -333,13 +333,28 @@ impl BddMgr {
         }
     }
 
+
+    /// Panics unless `node` belongs to this manager's forest.
+    ///
+    /// Same hazard as [`BddNode::assert_same_forest`]: node ids are only meaningful
+    /// in the forest that issued them, and two managers issue the same ids.
+    #[track_caller]
+    fn assert_owns(&self, node: &BddNode) {
+        assert!(
+            std::rc::Rc::as_ptr(&self.bdd) == node.parent.as_ptr(),
+            "this BddNode comes from a different manager"
+        );
+    }
+
     pub fn and(&self, nodes: &[BddNode]) -> BddNode {
+        nodes.iter().for_each(|n| self.assert_owns(n));
         let ids = nodes.iter().map(|x| x.node).collect::<Vec<NodeId>>();
         let result = bdd_kofn::and(&mut self.bdd.borrow_mut(), &ids);
         self.wrap(result)
     }
 
     pub fn or(&self, nodes: &[BddNode]) -> BddNode {
+        nodes.iter().for_each(|n| self.assert_owns(n));
         let ids = nodes.iter().map(|x| x.node).collect::<Vec<NodeId>>();
         let result = bdd_kofn::or(&mut self.bdd.borrow_mut(), &ids);
         self.wrap(result)
@@ -441,19 +456,38 @@ impl BddNode {
         result
     }
 
+    /// Panics unless `other` came from the same forest as `self`.
+    ///
+    /// Handles carry only a node id, and two managers number their nodes the same
+    /// way — so mixing them would not fail, it would compute on the wrong diagram
+    /// and return a plausible wrong answer. The Python layer in `relibmss` has
+    /// always checked this; Rust callers were unprotected.
+    #[track_caller]
+    fn assert_same_forest(&self, other: &Self) {
+        assert!(
+            Weak::ptr_eq(&self.parent, &other.parent),
+            "these {} handles come from different managers; a node id is only \
+             meaningful in the forest that created it",
+            "BddNode"
+        );
+    }
+
     pub fn and(&self, other: &BddNode) -> BddNode {
+        self.assert_same_forest(other);
         let bdd = self.parent.upgrade().unwrap();
         let result = bdd.borrow_mut().and(self.node, other.node);
         self.rewrap(&bdd, result)
     }
 
     pub fn or(&self, other: &BddNode) -> BddNode {
+        self.assert_same_forest(other);
         let bdd = self.parent.upgrade().unwrap();
         let result = bdd.borrow_mut().or(self.node, other.node);
         self.rewrap(&bdd, result)
     }
 
     pub fn xor(&self, other: &BddNode) -> BddNode {
+        self.assert_same_forest(other);
         let bdd = self.parent.upgrade().unwrap();
         let result = bdd.borrow_mut().xor(self.node, other.node);
         self.rewrap(&bdd, result)
@@ -466,12 +500,15 @@ impl BddNode {
     }
 
     pub fn ite(&self, then: &BddNode, else_: &BddNode) -> BddNode {
+        self.assert_same_forest(then);
+        self.assert_same_forest(else_);
         let bdd = self.parent.upgrade().unwrap();
         let result = bdd.borrow_mut().ite(self.node, then.node, else_.node);
         self.rewrap(&bdd, result)
     }
 
     pub fn eq(&self, other: &BddNode) -> bool {
+        self.assert_same_forest(other);
         self.node == other.node
     }
 

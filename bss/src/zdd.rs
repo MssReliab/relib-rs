@@ -236,7 +236,24 @@ impl ZddNode {
         matches!(zdd.get_node(&self.node).unwrap(), Node::One)
     }
 
+    /// Panics unless `other` came from the same forest as `self`.
+    ///
+    /// Handles carry only a node id, and two managers number their nodes the same
+    /// way — so mixing them would not fail, it would compute on the wrong diagram
+    /// and return a plausible wrong answer. The Python layer in `relibmss` has
+    /// always checked this; Rust callers were unprotected.
+    #[track_caller]
+    fn assert_same_forest(&self, other: &Self) {
+        assert!(
+            Weak::ptr_eq(&self.parent, &other.parent),
+            "these {} handles come from different managers; a node id is only \
+             meaningful in the forest that created it",
+            "ZddNode"
+        );
+    }
+
     pub fn eq(&self, other: &ZddNode) -> bool {
+        self.assert_same_forest(other);
         self.node == other.node
     }
 
@@ -250,6 +267,7 @@ impl ZddNode {
 
     /// Union of two set families.
     pub fn union(&self, other: &ZddNode) -> ZddNode {
+        self.assert_same_forest(other);
         let zdd = self.parent.upgrade().unwrap();
         let result = zdd.borrow_mut().union(self.node, other.node);
         self.rewrap(&zdd, result)
@@ -257,6 +275,7 @@ impl ZddNode {
 
     /// Intersection of two set families.
     pub fn intersect(&self, other: &ZddNode) -> ZddNode {
+        self.assert_same_forest(other);
         let zdd = self.parent.upgrade().unwrap();
         let result = zdd.borrow_mut().intersect(self.node, other.node);
         self.rewrap(&zdd, result)
@@ -264,6 +283,7 @@ impl ZddNode {
 
     /// Set difference (`self \ other`).
     pub fn setdiff(&self, other: &ZddNode) -> ZddNode {
+        self.assert_same_forest(other);
         let zdd = self.parent.upgrade().unwrap();
         let result = zdd.borrow_mut().setdiff(self.node, other.node);
         self.rewrap(&zdd, result)
@@ -271,6 +291,7 @@ impl ZddNode {
 
     /// Family product (all pairwise unions of a set from each family).
     pub fn product(&self, other: &ZddNode) -> ZddNode {
+        self.assert_same_forest(other);
         let zdd = self.parent.upgrade().unwrap();
         let result = zdd.borrow_mut().product(self.node, other.node);
         self.rewrap(&zdd, result)
@@ -278,6 +299,7 @@ impl ZddNode {
 
     /// Family quotient (`self / other`).
     pub fn divide(&self, other: &ZddNode) -> ZddNode {
+        self.assert_same_forest(other);
         let zdd = self.parent.upgrade().unwrap();
         let result = zdd.borrow_mut().divide(self.node, other.node);
         self.rewrap(&zdd, result)
