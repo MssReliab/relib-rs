@@ -76,13 +76,10 @@ fn test_canonicity() {
     let mut m = mgr2();
 
     // Reaching the same relation through the pattern API and through raw node
-    // construction must land on the same node.
-    //
-    // Note what this can and cannot show while the forest is only quasi-reduced:
-    // no level is ever skipped, so a relation has essentially one shape and this
-    // tests hash-consing rather than canonicalisation. The interesting version --
-    // two genuinely different shapes collapsing to one -- only becomes possible
-    // once identity reduction can elide diagonal blocks, and belongs with it.
+    // construction must land on the same node. This one only exercises
+    // hash-consing; the stronger property -- two genuinely different shapes
+    // collapsing to one node under identity reduction -- lives in
+    // `test_reduction::test_canonical_across_different_constructions`.
     let by_pattern = m.mxd_singleton(&[Src::Any, Src::Val(0)], &[Dst::Same, Dst::Val(1)]);
 
     let one = m.one();

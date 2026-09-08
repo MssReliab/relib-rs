@@ -265,27 +265,46 @@ impl MxdManager {
         self.hash_cons(v.set_header, children)
     }
 
-    /// Creates a **relation** node at `level`, quasi-reduced.
+    /// Creates a **relation** node at `level`, identity reduced.
     ///
     /// `block[a * n + b]` is the sub-diagram for the transition `(from = a, to = b)`.
     ///
-    /// The only rule applied is "the empty block is the empty relation". In
-    /// particular the fully-reduced rule (*all entries equal ⇒ elide*) must **never**
-    /// be applied to a relation node: eliding a level here has to mean `to == from`
-    /// (identity), whereas "all entries equal" means "`to` is anything" — the
-    /// opposite. Identity reduction, which elides exactly the diagonal blocks, is a
-    /// later stage; until then no relation level is ever skipped, so the forest is
-    /// quasi-reduced and trivially sound.
+    /// Two rules:
+    ///
+    /// 1. The empty block is the empty relation.
+    /// 2. **Identity reduction**: a block that is `c` down the diagonal and empty
+    ///    everywhere else says "this component does not move, then continue with
+    ///    `c`", so the level carries no information of its own and is elided in
+    ///    favour of `c`.
+    ///
+    /// The fully-reduced rule (*all entries equal ⇒ elide*) must **never** be applied
+    /// here. Eliding a relation level means `to == from`; "all entries equal" means
+    /// `to` is anything. Those are opposites, and confusing them is the difference
+    /// between the identity and `Ω × Ω`.
+    ///
+    /// Because a variable's source and target live in one node, the diagonal test is
+    /// local. Under MEDDLY's interleaved layout it is not: a primed node cannot tell
+    /// which unprimed edge reached it, so the rewrite has to happen in the parent.
+    /// That difference is the main reason for the fused representation.
     pub fn create_rel_node(&mut self, level: Level, block: &[NodeId]) -> NodeId {
         let v = self.vars[level];
+        let n = v.domain;
         assert_eq!(
             block.len(),
-            v.domain * v.domain,
+            n * n,
             "relation node at level {level} needs {} children",
-            v.domain * v.domain
+            n * n
         );
         if block.iter().all(|&x| x == self.zero) {
             return self.zero;
+        }
+        // Identity reduction: `c` on the diagonal, empty off it.
+        let diag = block[0];
+        if diag != self.zero
+            && (0..n).all(|a| block[a * n + a] == diag)
+            && (0..n).all(|a| (0..n).all(|b| a == b || block[a * n + b] == self.zero))
+        {
+            return diag;
         }
         self.hash_cons(v.rel_header, block)
     }

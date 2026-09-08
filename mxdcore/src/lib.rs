@@ -20,15 +20,15 @@
 //!
 //! # Status
 //!
-//! Sets and relations can be combined, crossed and transposed ([`mxd_ops`]), and
-//! the boundary operator `B = R ∩ (L × U)` is available as
-//! [`MxdManager::boundary`](mxd::MxdManager::boundary). The image operations
-//! `post_image` and `pre_image` are still to come.
+//! Sets and relations can be combined, crossed, transposed and imaged
+//! ([`mxd_ops`]), and the boundary operator `B = R ∩ (L × U)` is available as
+//! [`MxdManager::boundary`](mxd::MxdManager::boundary).
 //!
-//! Relation nodes are currently only **quasi-reduced** (no level is ever skipped).
-//! Identity reduction — eliding diagonal blocks — is the next step;
-//! [`enumerate`] already reads the skips it will introduce, and [`mxd_ops`] already
-//! expands them.
+//! Relation nodes are **identity reduced**: a level whose block is `c` down the
+//! diagonal and empty elsewhere says the component does not move, so it is elided.
+//! An invariant component is therefore free — a transition costs one node however
+//! many components stand still around it, which is what makes the repair/restart
+//! workload tractable.
 //!
 //! # Reading a node
 //!
