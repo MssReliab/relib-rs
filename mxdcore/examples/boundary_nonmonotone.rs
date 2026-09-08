@@ -52,7 +52,7 @@ fn phi(sum: usize) -> usize {
 }
 
 fn distribution_system(n: usize) -> (System, Levels) {
-    let mut sys = System::new(&vec![3; n]);
+    let sys = System::new(&vec![3; n]);
     let levels = sys.levels_from_fold(0usize, |acc, _i, v| (acc + v).min(SAT), |&acc| phi(acc));
     (sys, levels)
 }
@@ -74,7 +74,7 @@ fn main() {
     println!("n,state_space,phi_nodes,rel_nodes,rel_card,live_nodes,j,b_card,b_nodes,bd_card,bd_nodes,t_phi_s,t_rel_s,t_bnd_s");
     for n in ns {
         let t0 = Instant::now();
-        let (mut sys, levels) = distribution_system(n);
+        let (sys, levels) = distribution_system(n);
         let t_phi = t0.elapsed().as_secs_f64();
 
         // φ itself is not built as one diagram; its level sets are. Report the
@@ -82,28 +82,28 @@ fn main() {
         let phi_nodes = levels
             .interior()
             .flat_map(|j| [levels.upper(j), levels.lower(j)])
-            .map(|s| sys.node_count_states(s))
+            .map(|s| s.node_count())
             .max()
             .unwrap();
 
         let t1 = Instant::now();
         let dec = sys.degrade();
         let inc = sys.repair();
-        let rel = sys.union(dec, inc);
+        let rel = dec.union(&inc);
         let t_rel = t1.elapsed().as_secs_f64();
 
         let t2 = Instant::now();
         let rows: Vec<(usize, u128, usize, u128, usize)> = levels
             .interior()
             .map(|j| {
-                let up = sys.boundary_up(&levels, j, rel);
-                let down = sys.boundary_down(&levels, j, rel);
+                let up = rel.boundary_up(&levels, j);
+                let down = rel.boundary_down(&levels, j);
                 (
                     j,
-                    sys.count(up),
-                    sys.node_count(up),
-                    sys.count(down),
-                    sys.node_count(down),
+                    up.count(),
+                    up.node_count(),
+                    down.count(),
+                    down.node_count(),
                 )
             })
             .collect();
@@ -113,9 +113,9 @@ fn main() {
             .checked_pow(n as u32)
             .map(|v| v.to_string())
             .unwrap_or_else(|| "overflow".into());
-        let rel_card = sys.count(rel);
-        let rel_nodes = sys.node_count(rel);
-        let live = sys.engine().live_node_count();
+        let rel_card = rel.count();
+        let rel_nodes = rel.node_count();
+        let live = sys.live_node_count();
 
         for (j, bc, bn, bdc, bdn) in &rows {
             println!(

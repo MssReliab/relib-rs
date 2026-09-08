@@ -53,7 +53,7 @@ const REFERENCE: &[(usize, &str, usize, u128, u128)] = &[
     (14, "loop", 2, 248458, 318514),
 ];
 
-fn named(sys: &mut System, name: &str) -> Transitions {
+fn named(sys: &System, name: &str) -> Transitions {
     match name {
         "dec" => sys.degrade(),
         "inc" => sys.repair(),
@@ -61,7 +61,7 @@ fn named(sys: &mut System, name: &str) -> Transitions {
         "loop" => {
             let d = sys.degrade();
             let r = sys.restart();
-            sys.union(d, r)
+            d.union(&r)
         }
         other => panic!("unknown relation `{other}`"),
     }
@@ -70,13 +70,13 @@ fn named(sys: &mut System, name: &str) -> Transitions {
 #[test]
 fn test_boundaries_match_meddly() {
     for &(n, name, j, want_up, want_down) in REFERENCE {
-        let (mut sys, levels) = distribution_system(n);
-        let rel = named(&mut sys, name);
-        let up = sys.boundary_up(&levels, j, rel);
-        let down = sys.boundary_down(&levels, j, rel);
-        assert_eq!(sys.count(up), want_up, "n={n} {name} j={j}: upward boundary");
+        let (sys, levels) = distribution_system(n);
+        let rel = named(&sys, name);
+        let up = rel.boundary_up(&levels, j);
+        let down = rel.boundary_down(&levels, j);
+        assert_eq!(up.count(), want_up, "n={n} {name} j={j}: upward boundary");
         assert_eq!(
-            sys.count(down),
+            down.count(),
             want_down,
             "n={n} {name} j={j}: downward boundary"
         );
@@ -90,26 +90,26 @@ fn test_boundaries_match_meddly() {
 #[test]
 fn test_wrong_direction_crossings_exist() {
     for n in [4usize, 8, 12] {
-        let (mut sys, levels) = distribution_system(n);
+        let (sys, levels) = distribution_system(n);
         let dec = sys.degrade();
         let inc = sys.repair();
 
-        let dec_up = sys.boundary_up(&levels, 2, dec);
-        let inc_down = sys.boundary_down(&levels, 2, inc);
+        let dec_up = dec.boundary_up(&levels, 2);
+        let inc_down = inc.boundary_down(&levels, 2);
         assert!(
-            sys.count(dec_up) > 0,
+            dec_up.count() > 0,
             "n={n}: degrading must be able to enter the upper set"
         );
         assert!(
-            sys.count(inc_down) > 0,
+            inc_down.count() > 0,
             "n={n}: repairing must be able to leave it"
         );
 
         // At level 1 the system is still ordinary: below `ymin` nothing overflows,
         // so degrading only ever crosses downward there.
-        let dec_up1 = sys.boundary_up(&levels, 1, dec);
+        let dec_up1 = dec.boundary_up(&levels, 1);
         assert_eq!(
-            sys.count(dec_up1),
+            dec_up1.count(),
             0,
             "n={n}: at level 1 degrading cannot cross upward"
         );
@@ -123,20 +123,20 @@ fn test_wrong_direction_crossings_exist() {
 #[test]
 fn test_boundaries_are_converse_under_transpose() {
     for n in [3usize, 5, 9] {
-        let (mut sys, levels) = distribution_system(n);
+        let (sys, levels) = distribution_system(n);
         let dec = sys.degrade();
         let inc = sys.repair();
         assert_eq!(
-            sys.converse(dec),
+            dec.converse(),
             inc,
             "n={n}: degrade and repair must be converses"
         );
 
         for j in levels.interior() {
-            let dec_up = sys.boundary_up(&levels, j, dec);
-            let inc_down = sys.boundary_down(&levels, j, inc);
+            let dec_up = dec.boundary_up(&levels, j);
+            let inc_down = inc.boundary_down(&levels, j);
             assert_eq!(
-                sys.converse(dec_up),
+                dec_up.converse(),
                 inc_down,
                 "n={n} j={j}: boundaries must be converses"
             );
@@ -151,13 +151,13 @@ fn test_boundaries_are_converse_under_transpose() {
 #[test]
 fn test_restart_overshoots_more_than_gradual_repair() {
     for n in [8usize, 12, 16] {
-        let (mut sys, levels) = distribution_system(n);
+        let (sys, levels) = distribution_system(n);
         let inc = sys.repair();
         let restart = sys.restart();
 
-        let inc_down = sys.boundary_down(&levels, 2, inc);
-        let restart_down = sys.boundary_down(&levels, 2, restart);
-        let (a, b) = (sys.count(inc_down), sys.count(restart_down));
+        let inc_down = inc.boundary_down(&levels, 2);
+        let restart_down = restart.boundary_down(&levels, 2);
+        let (a, b) = (inc_down.count(), restart_down.count());
         assert!(
             b > a,
             "n={n}: restart ({b}) should leave the upper set more often than a single \
@@ -171,29 +171,29 @@ fn test_restart_overshoots_more_than_gradual_repair() {
 #[test]
 fn test_loop_is_the_union_of_its_parts() {
     let n = 10;
-    let (mut sys, levels) = distribution_system(n);
+    let (sys, levels) = distribution_system(n);
     let dec = sys.degrade();
     let restart = sys.restart();
-    let looped = sys.union(dec, restart);
+    let looped = dec.union(&restart);
 
     for up in [true, false] {
         let both = if up {
-            sys.boundary_up(&levels, 2, looped)
+            looped.boundary_up(&levels, 2)
         } else {
-            sys.boundary_down(&levels, 2, looped)
+            looped.boundary_down(&levels, 2)
         };
         let parts = {
             let a = if up {
-                sys.boundary_up(&levels, 2, dec)
+                dec.boundary_up(&levels, 2)
             } else {
-                sys.boundary_down(&levels, 2, dec)
+                dec.boundary_down(&levels, 2)
             };
             let b = if up {
-                sys.boundary_up(&levels, 2, restart)
+                restart.boundary_up(&levels, 2)
             } else {
-                sys.boundary_down(&levels, 2, restart)
+                restart.boundary_down(&levels, 2)
             };
-            sys.union(a, b)
+            a.union(&b)
         };
         assert_eq!(
             both, parts,
