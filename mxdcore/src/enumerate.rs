@@ -23,7 +23,7 @@
 //! Reaching the terminal `One` before level 0 is exactly such a skip, and is handled
 //! by the same rules.
 
-use crate::mxd::{MxdManager, Node};
+use crate::mxd::MxdManager;
 use common::prelude::*;
 
 /// A state vector, indexed by level.
@@ -53,7 +53,7 @@ impl MxdManager {
         }
         let l = level as usize;
         let n = self.var(l).domain;
-        match self.edges_at(node, l, false) {
+        match self.children_at(node, l, false) {
             Some(edges) => {
                 for (a, child) in edges.into_iter().enumerate() {
                     assign[l] = a;
@@ -98,7 +98,7 @@ impl MxdManager {
         }
         let l = level as usize;
         let n = self.var(l).domain;
-        match self.edges_at(node, l, true) {
+        match self.children_at(node, l, true) {
             Some(block) => {
                 for a in 0..n {
                     for b in 0..n {
@@ -120,29 +120,6 @@ impl MxdManager {
                     self.walk_rel(node, level - 1, from, to, out);
                 }
             }
-        }
-    }
-
-    /// The children of `node` if it sits at `level` and is of the requested kind,
-    /// otherwise `None` — meaning the level is skipped on this path.
-    fn edges_at(&self, node: NodeId, level: Level, want_rel: bool) -> Option<Vec<NodeId>> {
-        match self.get_node(&node) {
-            Some(Node::NonTerminal(f)) => {
-                let kind = self.kind(f.headerid());
-                if kind.level() == level && kind.is_rel() == want_rel {
-                    Some(f.iter().collect())
-                } else {
-                    // Either a lower level (skipped) or the other kind at this level.
-                    debug_assert!(
-                        kind.level() < level,
-                        "node at level {} reached while reading level {level}",
-                        kind.level()
-                    );
-                    None
-                }
-            }
-            // The One terminal: every remaining level is skipped.
-            _ => None,
         }
     }
 
@@ -176,7 +153,7 @@ impl MxdManager {
         }
         let l = level as usize;
         let n = self.var(l).domain;
-        let total = match self.edges_at(node, l, want_rel) {
+        let total = match self.children_at(node, l, want_rel) {
             Some(edges) => edges
                 .into_iter()
                 .map(|c| self.count(c, level - 1, want_rel, memo))

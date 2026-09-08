@@ -20,9 +20,20 @@
 //!
 //! # Status
 //!
+//! Sets and relations can be combined ([`mxd_ops`]), but the relational operations
+//! `cross`, `post_image` and `pre_image` are still to come.
+//!
 //! Relation nodes are currently only **quasi-reduced** (no level is ever skipped).
 //! Identity reduction — eliding diagonal blocks — is the next step;
-//! [`enumerate`] already reads the skips it will introduce.
+//! [`enumerate`] already reads the skips it will introduce, and [`mxd_ops`] already
+//! expands them.
+//!
+//! # Reading a node
+//!
+//! `Zero` and `One` are shared between sets and relations, so a node on its own
+//! does not say which it is; the caller has to know. This matters most for `One`,
+//! which as a set is all of `Ω` but as a relation is the **identity**, not `Ω × Ω`.
+//! That is why the operations come in `_set` and `_rel` pairs.
 //!
 //! ```
 //! use mxdcore::prelude::*;
@@ -39,6 +50,7 @@
 pub mod enumerate;
 pub mod minterm;
 pub mod mxd;
+pub mod mxd_ops;
 pub mod nodes;
 
 pub mod prelude {

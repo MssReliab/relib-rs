@@ -81,6 +81,21 @@ pub struct MxdManager {
     // `mddcore::mdd::MddManager`: halves the bytes of the (header, children) key
     // copied and hashed per create_node.
     utable: BddHashMap<(u32, Box<[u32]>), u32>,
+    // Set operations are level-independent (full reduction makes a skipped level a
+    // plain don't-care), so they share one op-keyed table: (op code, f, g).
+    set_cache: ComputeCache,
+    // Relation operations are NOT level-independent: a skipped level means the
+    // identity, so the same pair of operands combines differently depending on how
+    // many levels are still to come. The level therefore has to be in the key,
+    // which leaves no room for an op code in the three available words — hence one
+    // dedicated table per operation, keyed (f, g, level).
+    and_rel_cache: ComputeCache,
+    or_rel_cache: ComputeCache,
+    not_rel_cache: ComputeCache,
+    // The full relation Ω × Ω restricted to levels 0..=i, indexed by i. Built
+    // lazily; needed because complementing a relation cannot bottom out at the One
+    // terminal (which denotes the *identity*, not the full relation).
+    full_rel: Vec<NodeId>,
     // Slots in `nodes` reclaimed by gc(), available for reuse.
     freelist: Vec<u32>,
 }
@@ -145,6 +160,11 @@ impl MxdManager {
             zero,
             one,
             utable: BddHashMap::default(),
+            set_cache: ComputeCache::new(),
+            and_rel_cache: ComputeCache::new(),
+            or_rel_cache: ComputeCache::new(),
+            not_rel_cache: ComputeCache::new(),
+            full_rel: Vec::new(),
             freelist: Vec::new(),
         }
     }
@@ -296,6 +316,19 @@ impl MxdManager {
 
         self.utable.retain(|_, &mut v| live[v as usize]);
 
+        // Op-keyed, so entries touching a reclaimed slot can be dropped selectively.
+        self.set_cache.retain_live(&live);
+        // These carry a *level* in the third key word, so `retain_live3` would test
+        // it as a node id and keep or drop entries for the wrong reason. Same call
+        // that `mddcore::mtmdd2::MtMdd2Manager::gc` makes for its cross-forest
+        // tables: drop the lot. A miss only costs a recomputation.
+        self.and_rel_cache.clear();
+        self.or_rel_cache.clear();
+        self.not_rel_cache.clear();
+        // Memoized full relations may name reclaimed slots; they rebuild cheaply
+        // and hash-cons back to the same nodes if those are still live.
+        self.full_rel.clear();
+
         self.freelist.clear();
         for (id, &alive) in live.iter().enumerate() {
             if !alive {
@@ -303,6 +336,38 @@ impl MxdManager {
             }
         }
         self.freelist.len()
+    }
+
+    /// The children of `node` if it sits at `level` and is of the requested kind,
+    /// otherwise `None` — meaning the level is skipped on this path.
+    ///
+    /// This is the single place the skip rule is detected; what a skip *means* is
+    /// the caller's business, and differs by kind: don't-care for a set, identity
+    /// for a relation. See the `enumerate` module docs.
+    pub(crate) fn children_at(
+        &self,
+        node: NodeId,
+        level: Level,
+        want_rel: bool,
+    ) -> Option<Vec<NodeId>> {
+        match self.get_node(&node) {
+            Some(Node::NonTerminal(f)) => {
+                let kind = self.kind(f.headerid());
+                if kind.level() == level && kind.is_rel() == want_rel {
+                    Some(f.iter().collect())
+                } else {
+                    // Either a lower level (skipped) or the other kind at this level.
+                    debug_assert!(
+                        kind.level() < level,
+                        "node at level {} reached while reading level {level}",
+                        kind.level()
+                    );
+                    None
+                }
+            }
+            // A terminal: every remaining level is skipped.
+            _ => None,
+        }
     }
 
     /// Number of live (non-reclaimed) node slots, including terminals.
@@ -326,6 +391,102 @@ impl MxdManager {
     pub fn one(&self) -> NodeId {
         self.one
     }
+
+    /// The full relation `Ω × Ω` restricted to levels `0..=level`.
+    ///
+    /// Cannot be the `One` terminal: a skipped relation level is the identity, so
+    /// `One` denotes the diagonal. The full relation is a genuine spine of
+    /// all-ones blocks.
+    pub(crate) fn full_relation(&mut self, level: i64) -> NodeId {
+        if level < 0 {
+            return self.one;
+        }
+        let l = level as usize;
+        if let Some(&cached) = self.full_rel.get(l) {
+            if cached != usize::MAX {
+                return cached;
+            }
+        }
+        let below = self.full_relation(level - 1);
+        let n = self.vars[l].domain;
+        let node = self.create_rel_node(l, &vec![below; n * n]);
+        if self.full_rel.len() <= l {
+            self.full_rel.resize(l + 1, usize::MAX);
+        }
+        self.full_rel[l] = node;
+        node
+    }
+
+    #[inline]
+    pub(crate) fn set_cache_get(&self, op: u32, f: NodeId, g: NodeId) -> Option<NodeId> {
+        self.set_cache.get(op, f as u32, g as u32).map(|v| v as NodeId)
+    }
+
+    #[inline]
+    pub(crate) fn set_cache_put(&mut self, op: u32, f: NodeId, g: NodeId, val: NodeId) {
+        self.set_cache.put(op, f as u32, g as u32, val as u32);
+    }
+
+    #[inline]
+    pub(crate) fn rel_cache_get(
+        &self,
+        which: RelOp,
+        f: NodeId,
+        g: NodeId,
+        level: i64,
+    ) -> Option<NodeId> {
+        self.rel_cache(which)
+            .get(f as u32, g as u32, level as u32)
+            .map(|v| v as NodeId)
+    }
+
+    #[inline]
+    pub(crate) fn rel_cache_put(
+        &mut self,
+        which: RelOp,
+        f: NodeId,
+        g: NodeId,
+        level: i64,
+        val: NodeId,
+    ) {
+        self.rel_cache_mut(which)
+            .put(f as u32, g as u32, level as u32, val as u32);
+    }
+
+    #[inline]
+    fn rel_cache(&self, which: RelOp) -> &ComputeCache {
+        match which {
+            RelOp::And => &self.and_rel_cache,
+            RelOp::Or => &self.or_rel_cache,
+            RelOp::Not => &self.not_rel_cache,
+        }
+    }
+
+    #[inline]
+    fn rel_cache_mut(&mut self, which: RelOp) -> &mut ComputeCache {
+        match which {
+            RelOp::And => &mut self.and_rel_cache,
+            RelOp::Or => &mut self.or_rel_cache,
+            RelOp::Not => &mut self.not_rel_cache,
+        }
+    }
+
+    #[inline]
+    pub fn clear_cache(&mut self) {
+        self.set_cache.clear();
+        self.and_rel_cache.clear();
+        self.or_rel_cache.clear();
+        self.not_rel_cache.clear();
+    }
+}
+
+/// Selects which of the per-operation relation tables to use. Relation operations
+/// cannot share one op-keyed table because the level occupies a key word.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RelOp {
+    And,
+    Or,
+    Not,
 }
 
 impl HeaderKind {
