@@ -1,0 +1,68 @@
+name: CI
+
+# The workspace had no CI at all until now: PRs #6 and #7 both merged on nothing
+# but locally-run tests. This gates the obvious things.
+#
+# No Julia or MEDDLY toolchain is needed. The two MEDDLY cross-check fixtures
+# (mss/tests/fixtures, mxdcore/tests/fixtures) are committed and pulled in with
+# include_str!, so they run anywhere; regenerating them is a manual step.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Toolchain versions
+        run: rustc --version && cargo --version
+
+      # Cargo.lock is tracked here, so --locked also catches a lockfile that was
+      # not updated alongside a manifest change.
+      - name: Build
+        run: cargo build --workspace --locked
+
+      # --no-fail-fast so one failing crate does not hide the state of the rest.
+      - name: Test
+        run: cargo test --workspace --locked --no-fail-fast
+
+      - name: Doctests
+        run: cargo test --doc --workspace --locked
+
+      - name: Examples
+        run: cargo build --workspace --locked --examples
+
+  lint:
+    name: warnings & docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Warnings are denied for the code that ships. Test code is deliberately
+      # excluded: it currently carries ~30 unused-binding warnings, and churning
+      # every test file to clear them belongs in its own change.
+      - name: Build with warnings denied
+        run: cargo build --workspace --locked
+        env:
+          RUSTFLAGS: -D warnings
+
+      - name: Examples with warnings denied
+        run: cargo build --workspace --locked --examples
+        env:
+          RUSTFLAGS: -D warnings
+
+      # docs.rs renders rustdoc and freezes it per version, and this repo's
+      # convention is that docs land in the same commit as the change, so a
+      # broken intra-doc link is worth failing on.
+      - name: Rustdoc with warnings denied
+        run: cargo doc --no-deps --workspace --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
