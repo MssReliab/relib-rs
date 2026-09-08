@@ -4,6 +4,7 @@ members = [
     "common",
     "bddcore",
     "mddcore",
+    "mxdcore",
     "bss",
     "mss",
 ]
