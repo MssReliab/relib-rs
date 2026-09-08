@@ -92,6 +92,8 @@ pub struct MxdManager {
     and_rel_cache: ComputeCache,
     or_rel_cache: ComputeCache,
     not_rel_cache: ComputeCache,
+    cross_cache: ComputeCache,
+    transpose_cache: ComputeCache,
     // The full relation Ω × Ω restricted to levels 0..=i, indexed by i. Built
     // lazily; needed because complementing a relation cannot bottom out at the One
     // terminal (which denotes the *identity*, not the full relation).
@@ -164,6 +166,8 @@ impl MxdManager {
             and_rel_cache: ComputeCache::new(),
             or_rel_cache: ComputeCache::new(),
             not_rel_cache: ComputeCache::new(),
+            cross_cache: ComputeCache::new(),
+            transpose_cache: ComputeCache::new(),
             full_rel: Vec::new(),
             freelist: Vec::new(),
         }
@@ -325,6 +329,8 @@ impl MxdManager {
         self.and_rel_cache.clear();
         self.or_rel_cache.clear();
         self.not_rel_cache.clear();
+        self.cross_cache.clear();
+        self.transpose_cache.clear();
         // Memoized full relations may name reclaimed slots; they rebuild cheaply
         // and hash-cons back to the same nodes if those are still live.
         self.full_rel.clear();
@@ -459,6 +465,8 @@ impl MxdManager {
             RelOp::And => &self.and_rel_cache,
             RelOp::Or => &self.or_rel_cache,
             RelOp::Not => &self.not_rel_cache,
+            RelOp::Cross => &self.cross_cache,
+            RelOp::Transpose => &self.transpose_cache,
         }
     }
 
@@ -468,6 +476,8 @@ impl MxdManager {
             RelOp::And => &mut self.and_rel_cache,
             RelOp::Or => &mut self.or_rel_cache,
             RelOp::Not => &mut self.not_rel_cache,
+            RelOp::Cross => &mut self.cross_cache,
+            RelOp::Transpose => &mut self.transpose_cache,
         }
     }
 
@@ -477,6 +487,8 @@ impl MxdManager {
         self.and_rel_cache.clear();
         self.or_rel_cache.clear();
         self.not_rel_cache.clear();
+        self.cross_cache.clear();
+        self.transpose_cache.clear();
     }
 }
 
@@ -487,6 +499,8 @@ pub(crate) enum RelOp {
     And,
     Or,
     Not,
+    Cross,
+    Transpose,
 }
 
 impl HeaderKind {

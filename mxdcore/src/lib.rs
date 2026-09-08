@@ -20,8 +20,10 @@
 //!
 //! # Status
 //!
-//! Sets and relations can be combined ([`mxd_ops`]), but the relational operations
-//! `cross`, `post_image` and `pre_image` are still to come.
+//! Sets and relations can be combined, crossed and transposed ([`mxd_ops`]), and
+//! the boundary operator `B = R ∩ (L × U)` is available as
+//! [`MxdManager::boundary`](mxd::MxdManager::boundary). The image operations
+//! `post_image` and `pre_image` are still to come.
 //!
 //! Relation nodes are currently only **quasi-reduced** (no level is ever skipped).
 //! Identity reduction — eliding diagonal blocks — is the next step;

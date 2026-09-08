@@ -38,9 +38,10 @@ perform.
 ## Status
 
 Early. Relation nodes are only **quasi-reduced** — no level is ever skipped.
-Boolean combination of sets and of relations works. Identity reduction, and the
-`cross` / `post_image` / `pre_image` operations, are still to come; the
-enumeration code already implements the skip semantics they will introduce.
+Boolean combination, `cross`, `transpose` and the boundary operator
+`B = R ∩ (L × U)` all work. Identity reduction and the image operations
+`post_image` / `pre_image` are still to come; the enumeration code already
+implements the skip semantics identity reduction will introduce.
 
 Part of the Rust engine behind the
 [`relibmss`](https://github.com/MssReliab/relibmss) Python package.

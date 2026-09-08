@@ -11,4 +11,8 @@
 - Set operations are the ordinary MDD apply from `mddcore::mdd_ops` and share one op-keyed compute table. Relation operations **carry an explicit level**: a skipped relation level means the identity, so the same pair of operands combines differently depending on how many levels remain, and the level has to be part of the cache key. That leaves no room for an op code in the three available key words, so each relation operation gets its own table, keyed `(f, g, level)`. Those tables are cleared rather than filtered by `gc`, since `retain_live3` would test the level word as a node id.
 - A skipped relation level is expanded into the explicit diagonal block it stands for, which makes one elementwise pass correct for intersection, union *and* complement. Complementing cannot bottom out at `One` — that denotes the identity, not `Ω × Ω` — so the empty relation complements to a lazily built spine of full blocks (`full_relation`).
 
-Not yet published; `cross`, `post_image` and `pre_image` are still to come.
+- **`cross`** — the cartesian product `{ (m, m') : m ∈ f, m' ∈ g }`, taking two *set* edges to a *relation* edge, with `|cross(a, b)| = |a| · |b|`. Not commutative, so unlike `and_rel`/`or_rel` there is no operand swap to canonicalise the cache key. Both operands being sets, a skipped level is an independent don't-care on each side and their product is the full `n × n` block — not the identity, which is why the level cannot be recovered from the operands.
+- **`transpose`** — the converse relation, mirroring each block about its diagonal. A skipped level (the identity) is its own transpose.
+- **`boundary(lower, upper, rel)`** — `B = R ∩ (L × U)`. Monotonicity of the underlying structure function is nowhere assumed, which is the point: repair and restart are analysed the same way as failure.
+
+Not yet published; `post_image` and `pre_image` are still to come.

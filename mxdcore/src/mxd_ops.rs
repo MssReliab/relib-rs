@@ -251,6 +251,96 @@ impl MxdManager {
         block
     }
 
+    // ------------------------------------------------ sets -> relation
+
+    /// Cartesian product: the relation `{ (m, m') : m ∈ f, m' ∈ g }`.
+    ///
+    /// Takes two **set** edges and returns a **relation** edge. Its cardinality is
+    /// `|f| · |g|`.
+    ///
+    /// Note this is not commutative — `cross(a, b)` is the transpose of
+    /// `cross(b, a)` — so unlike `and_rel`/`or_rel` there is no operand swap to
+    /// canonicalise the cache key.
+    pub fn cross(&mut self, f: NodeId, g: NodeId) -> NodeId {
+        let top = self.num_vars() as i64 - 1;
+        self.cross_at(f, g, top)
+    }
+
+    fn cross_at(&mut self, f: NodeId, g: NodeId, level: i64) -> NodeId {
+        if f == self.zero() || g == self.zero() {
+            return self.zero();
+        }
+        if level < 0 {
+            return self.one();
+        }
+        if let Some(v) = self.rel_cache_get(RelOp::Cross, f, g, level) {
+            return v;
+        }
+        let l = level as usize;
+        let n = self.var(l).domain;
+        // Both operands are sets, so a skipped level is a don't-care on each side
+        // independently. The product of two don't-cares is the full n x n block --
+        // emphatically not the identity, which is why the level cannot be inferred
+        // from the operands and has to be carried.
+        let fa = self.set_children(f, l);
+        let gb = self.set_children(g, l);
+        let mut block = Vec::with_capacity(n * n);
+        for a in 0..n {
+            for b in 0..n {
+                block.push(self.cross_at(fa[a], gb[b], level - 1));
+            }
+        }
+        let node = self.create_rel_node(l, &block);
+        self.rel_cache_put(RelOp::Cross, f, g, level, node);
+        node
+    }
+
+    /// The converse relation `{ (m', m) : (m, m') ∈ f }`.
+    ///
+    /// Mirrors each `n × n` block about its diagonal, which is why a skipped level
+    /// (the identity) transposes to itself.
+    pub fn transpose(&mut self, f: NodeId) -> NodeId {
+        let top = self.num_vars() as i64 - 1;
+        self.transpose_at(f, top)
+    }
+
+    fn transpose_at(&mut self, f: NodeId, level: i64) -> NodeId {
+        if f == self.zero() {
+            return self.zero();
+        }
+        if level < 0 {
+            return self.one();
+        }
+        if let Some(v) = self.rel_cache_get(RelOp::Transpose, f, 0, level) {
+            return v;
+        }
+        let l = level as usize;
+        let n = self.var(l).domain;
+        let fb = self.rel_block(f, l);
+        let mut block = Vec::with_capacity(n * n);
+        for a in 0..n {
+            for b in 0..n {
+                // The cell for (from = a, to = b) of the result is the transpose of
+                // the cell for (from = b, to = a) of the operand.
+                block.push(self.transpose_at(fb[b * n + a], level - 1));
+            }
+        }
+        let node = self.create_rel_node(l, &block);
+        self.rel_cache_put(RelOp::Transpose, f, 0, level, node);
+        node
+    }
+
+    /// The boundary operator `B = R ∩ (L × U)`: the transitions of `R` that leave
+    /// `L` and land in `U`.
+    ///
+    /// Nothing here assumes the underlying structure function is monotone, which is
+    /// the point — it is what lets repair and restart be analysed the same way as
+    /// failure.
+    pub fn boundary(&mut self, lower: NodeId, upper: NodeId, rel: NodeId) -> NodeId {
+        let product = self.cross(lower, upper);
+        self.and_rel(product, rel)
+    }
+
     fn not_rel_at(&mut self, f: NodeId, level: i64) -> NodeId {
         if level < 0 {
             return if f == self.zero() {
