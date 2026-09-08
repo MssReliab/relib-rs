@@ -675,7 +675,7 @@ where
 
     pub fn is_zero(&self) -> bool {
         match &self.node {
-            Node::Value(x) => false,
+            Node::Value(_) => false,
             Node::Bool(x) => {
                 let mddmgr = self.parent.upgrade().unwrap();
                 let mdd = mddmgr.borrow();
@@ -692,7 +692,7 @@ where
 
     pub fn is_one(&self) -> bool {
         match &self.node {
-            Node::Value(x) => false,
+            Node::Value(_) => false,
             Node::Bool(x) => {
                 let mddmgr = self.parent.upgrade().unwrap();
                 let mdd = mddmgr.borrow();
@@ -709,7 +709,7 @@ where
 
     pub fn is_undet(&self) -> bool {
         match &self.node {
-            Node::Value(x) => false,
+            Node::Value(_) => false,
             Node::Bool(x) => {
                 let mddmgr = self.parent.upgrade().unwrap();
                 let mdd = mddmgr.borrow();
@@ -735,7 +735,7 @@ where
                     _ => None,
                 }
             }
-            Node::Bool(x) => None,
+            Node::Bool(_) => None,
         }
     }
 
