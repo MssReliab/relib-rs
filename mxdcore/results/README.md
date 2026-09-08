@@ -78,6 +78,16 @@ the ratios as an order of magnitude, not a benchmark result.
   thresholds it; this crate has no value-carrying diagram and builds the level
   sets `{x : φ(Σxᵢ) ⋛ j}` directly. Different work.
 
+## A note on the `live_nodes` column
+
+`boundary_nonmonotone_rust.csv` carries a `live_nodes` column. It is the size of
+the **whole arena**, intermediates included — not a property of any result. It
+therefore changes when the example is restructured even though nothing computed
+changes: building `degrade` and `repair` as separate relations and then uniting
+them retains a few more intermediates than accumulating one union does, which
+moved the column by about `n` without moving a single cardinality or per-diagram
+node count. Read `b_nodes` / `bd_nodes` for the size of an actual result.
+
 ## Node counts
 
 **Set** diagrams use the same convention on both sides — fully reduced, one level

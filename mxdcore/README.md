@@ -10,16 +10,20 @@ multi-state system analysis. Unlike minimal path/cut vector methods, it does not
 require the structure function to be monotone, so it extends to repair and restart.
 
 ```rust
-use mxdcore::prelude::*;
+use mxdcore::analysis::*;
 
-let mut m = MxdManager::new();
-m.defvar("x", 2);
-m.defvar("y", 3);
+// Two components, three states each; φ is the worst of them (a series system).
+let mut sys = System::new(&[3, 3]);
+let levels = sys.levels_from_states(|x| *x.iter().min().unwrap());
+let degrade = sys.degrade();
 
-// Every component invariant: the identity relation over the whole state space.
-let id = m.mxd_singleton(&[Src::Any, Src::Any], &[Dst::Same, Dst::Same]);
-assert_eq!(m.cardinality_relation(id), m.state_space_size());
+// Transitions that drop the system out of {φ ≥ 2}.
+let leaving = sys.boundary_down(&levels, 2, degrade);
+assert_eq!(sys.count(leaving), 2);
 ```
+
+`analysis` is the layer most callers want; `MxdManager` underneath it is the raw
+engine, where sets and relations are both plain node ids.
 
 ## Representation
 

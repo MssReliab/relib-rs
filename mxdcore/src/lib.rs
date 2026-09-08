@@ -20,7 +20,12 @@
 //!
 //! # Status
 //!
-//! Sets and relations can be combined, crossed, transposed and imaged
+//! **Most callers want [`analysis`]**, not the engine directly: it puts the same
+//! operations in the vocabulary of the problem — components, a structure function,
+//! transition relations, boundaries between performance levels — and keeps sets
+//! and relations apart as distinct types, which the engine cannot.
+//!
+//! Underneath, sets and relations can be combined, crossed, transposed and imaged
 //! ([`mxd_ops`]), and the boundary operator `B = R ∩ (L × U)` is available as
 //! [`MxdManager::boundary`](mxd::MxdManager::boundary). Diagrams render to
 //! Graphviz through the `Dot` trait ([`mxd_dot`]).
@@ -50,6 +55,7 @@
 //! assert_eq!(m.cardinality_relation(id), m.state_space_size());
 //! ```
 
+pub mod analysis;
 pub mod enumerate;
 pub mod minterm;
 pub mod mxd;
