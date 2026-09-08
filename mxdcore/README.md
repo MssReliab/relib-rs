@@ -53,6 +53,11 @@ and a comparison against MEDDLY in `results/`.
 Part of the Rust engine behind the
 [`relibmss`](https://github.com/MssReliab/relibmss) Python package.
 
+## Publishing
+
+Not on crates.io: `publish = false` while the API is still moving. The crate is a
+workspace member and runs under `cargo test` like any other.
+
 ## License
 
 MIT

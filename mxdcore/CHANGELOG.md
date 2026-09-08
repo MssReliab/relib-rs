@@ -30,4 +30,4 @@
 - **`examples/boundary_nonmonotone.rs`** — the boundary operator on `distribution_system(n)` (Sedlacek et al. 2021, RESS 215:107824 §4.2), a genuinely non-monotone multi-state system where producing more can lower φ, so minimal path/cut vectors do not apply. Mirrors `MDDMinsol/scripts/boundary_nonmonotone.jl`. φ depends only on the component sum, so the level sets are built directly as boolean MDDs and no value-carrying diagram is needed.
 - **Agrees with MEDDLY on all 42 `(n, j)` rows** of that case study, `n = 2..22` — see `results/README.md`. `test_distribution_system.rs` pins the small end plus the closed form `|B_1| = n²`, and checks the system really is non-monotone rather than taking it on trust.
 
-Not yet published.
+**`publish = false`.** The crate is in the workspace and covered by `cargo test`, but is deliberately kept off crates.io while the API is still moving — a published version can never be re-uploaded. Removing that line brings it into the lockstep release, published after `relib-common`, its only dependency.
