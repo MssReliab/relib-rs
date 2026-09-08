@@ -22,7 +22,8 @@
 //!
 //! Sets and relations can be combined, crossed, transposed and imaged
 //! ([`mxd_ops`]), and the boundary operator `B = R ∩ (L × U)` is available as
-//! [`MxdManager::boundary`](mxd::MxdManager::boundary).
+//! [`MxdManager::boundary`](mxd::MxdManager::boundary). Diagrams render to
+//! Graphviz through the `Dot` trait ([`mxd_dot`]).
 //!
 //! Relation nodes are **identity reduced**: a level whose block is `c` down the
 //! diagonal and empty elsewhere says the component does not move, so it is elided.
@@ -52,6 +53,7 @@
 pub mod enumerate;
 pub mod minterm;
 pub mod mxd;
+pub mod mxd_dot;
 pub mod mxd_ops;
 pub mod nodes;
 

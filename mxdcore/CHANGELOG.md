@@ -18,4 +18,7 @@
 - **`post_image` / `pre_image`** — the forward and backward images, `{ m' : ∃ m ∈ S, (m, m') ∈ R }` and `{ m : ∃ m' ∈ S, (m, m') ∈ R }`. Each quantifies away one side of the transition and indexes the result by the other; they satisfy `post(S, transpose(R)) == pre(S, R)`.
 - Identity reduction makes an invariant component free: a transition where one component moves and `k-1` do not costs **one node whatever `k` is**, instead of `k`. That is the shape the repair/restart workload is built from, so the reduction is what makes it tractable rather than an optimisation.
 
+- **Graphviz output** (`mxd_dot`, `Dot` impl). Set nodes are circles, relation nodes double circles labelled `x'`, terminals squares. Relation edges are labelled `a→b` — the transition the block cell stands for — rather than a flat child index, and edges into `Zero` are **not** drawn: a relation node has `n²` of them and is usually sparse. Set nodes keep every edge, matching the `mddcore` renderers. Note that an elided level is invisible, and for a relation that means the component *does not move*: a `T` reached from a relation node is the identity below it, not `Ω × Ω`.
+- `gc` also clears the memoized full relations, whose entries are node ids and would otherwise name reclaimed slots.
+
 Not yet published.

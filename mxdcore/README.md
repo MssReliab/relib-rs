@@ -42,8 +42,9 @@ move is elided, so an invariant component is free and a transition costs one
 node however many components stand still around it.
 
 Boolean combination, `cross`, `transpose`, `post_image`, `pre_image` and the
-boundary operator `B = R ∩ (L × U)` all work. Still to come: a Graphviz
-renderer, and the driver for the non-monotone (repair/restart) case studies.
+boundary operator `B = R ∩ (L × U)` all work, and diagrams render to Graphviz.
+Still to come: the driver for the non-monotone (repair/restart) case studies,
+and a cross-check against the Julia/MEDDLY implementation.
 
 Part of the Rust engine behind the
 [`relibmss`](https://github.com/MssReliab/relibmss) Python package.
