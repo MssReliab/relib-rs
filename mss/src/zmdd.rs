@@ -255,7 +255,24 @@ where
     }
 
     /// Label-wise intersection with another family from the same manager.
+    /// Panics unless `other` came from the same forest as `self`.
+    ///
+    /// Handles carry only a node id, and two managers number their nodes the same
+    /// way — so mixing them would not fail, it would compute on the wrong diagram
+    /// and return a plausible wrong answer. The Python layer in `relibmss` has
+    /// always checked this; Rust callers were unprotected.
+    #[track_caller]
+    fn assert_same_forest(&self, other: &Self) {
+        assert!(
+            Weak::ptr_eq(&self.parent, &other.parent),
+            "these {} handles come from different managers; a node id is only \
+             meaningful in the forest that created it",
+            "ZmddNode"
+        );
+    }
+
     pub fn intersect(&self, other: &ZmddNode<V>) -> ZmddNode<V> {
+        self.assert_same_forest(other);
         let zmdd = self.parent.upgrade().unwrap();
         let result = zmdd.borrow_mut().intersect(self.node, other.node);
         self.rewrap(&zmdd, result)
@@ -263,6 +280,7 @@ where
 
     /// Label-wise difference (`self − other`).
     pub fn setdiff(&self, other: &ZmddNode<V>) -> ZmddNode<V> {
+        self.assert_same_forest(other);
         let zmdd = self.parent.upgrade().unwrap();
         let result = zmdd.borrow_mut().setdiff(self.node, other.node);
         self.rewrap(&zmdd, result)

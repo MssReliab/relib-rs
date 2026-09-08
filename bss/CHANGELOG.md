@@ -1,3 +1,7 @@
+## Unreleased
+
+- **Node handles now refuse to mix forests.** Every binary and ternary operation on a node handle (`and`/`or`/`xor`/`ite` and, on the multi-state side, the arithmetic and comparison operators, plus `ZddNode`/`ZmddNode` set algebra) asserts that both operands came from the same manager, as do the manager-side methods that take node slices. Previously they read only the node **id** from the other operand — and two managers number their nodes identically, so mixing them did not fail: it computed on the wrong diagram and returned a plausible wrong answer. `relibmss` has always checked this on the Python side (`other.mdd is not self.mdd` → `ValueError`), so this closes the hole only for callers using the Rust crates directly. Behaviour within a single forest is unchanged; the check is one pointer comparison.
+
 ## relib-bss 0.14.0
 
 - Version bump for workspace lockstep; no functional changes (the ZMDD family changes live in `relib-mdd`/`relib-mss`).
