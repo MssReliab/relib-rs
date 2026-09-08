@@ -43,8 +43,11 @@ node however many components stand still around it.
 
 Boolean combination, `cross`, `transpose`, `post_image`, `pre_image` and the
 boundary operator `B = R ∩ (L × U)` all work, and diagrams render to Graphviz.
-Still to come: the driver for the non-monotone (repair/restart) case studies,
-and a cross-check against the Julia/MEDDLY implementation.
+Results are cross-checked against MEDDLY (via Meddly.jl) on a committed fixture
+of randomised cases, comparing cardinality and full membership — not node
+counts, which cannot agree given the different node layout.
+
+Still to come: the driver for the non-monotone (repair/restart) case studies.
 
 Part of the Rust engine behind the
 [`relibmss`](https://github.com/MssReliab/relibmss) Python package.
