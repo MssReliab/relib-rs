@@ -1,0 +1,25 @@
+[package]
+name = "relib-mxd"
+description = "Matrix Decision Diagrams (MxD) for the relib reliability toolkit: relations over multi-valued state vectors, with cross product and pre/post image."
+keywords = ["decision-diagram", "mxd", "relation", "reliability"]
+categories = ["data-structures", "science"]
+readme = "README.md"
+# Not published yet: the API is still research-grade and moving, and a crates.io
+# version can never be re-uploaded. Remove this line to bring the crate into the
+# lockstep release, publishing it after `relib-common` (its only dependency).
+publish = false
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "mxdcore"
+
+[dependencies]
+common = { path = "../common", version = "0.14.1", package = "relib-common" }
+
+[package.metadata.docs.rs]
+all-features = true
