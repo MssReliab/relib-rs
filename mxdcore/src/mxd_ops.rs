@@ -330,6 +330,95 @@ impl MxdManager {
         node
     }
 
+    // --------------------------------------------- set + relation -> set
+
+    /// Forward image: `{ m' : ∃ m ∈ set, (m, m') ∈ rel }`.
+    ///
+    /// Takes a **set** edge and a **relation** edge and returns a **set** edge.
+    pub fn post_image(&mut self, set: NodeId, rel: NodeId) -> NodeId {
+        let top = self.num_vars() as i64 - 1;
+        self.post_image_at(set, rel, top)
+    }
+
+    /// Backward image: `{ m : ∃ m' ∈ set, (m, m') ∈ rel }`.
+    ///
+    /// The dual of [`post_image`](Self::post_image): the set is matched against the
+    /// *target* of each transition and the result collects the sources.
+    pub fn pre_image(&mut self, set: NodeId, rel: NodeId) -> NodeId {
+        let top = self.num_vars() as i64 - 1;
+        self.pre_image_at(set, rel, top)
+    }
+
+    fn post_image_at(&mut self, set: NodeId, rel: NodeId, level: i64) -> NodeId {
+        if set == self.zero() || rel == self.zero() {
+            return self.zero();
+        }
+        if level < 0 {
+            return self.one();
+        }
+        if let Some(v) = self.rel_cache_get(RelOp::PostImage, set, rel, level) {
+            return v;
+        }
+        let l = level as usize;
+        let n = self.var(l).domain;
+        let sa = self.set_children(set, l);
+        let rb = self.rel_block(rel, l);
+        // The source value `a` is what gets quantified away; the result is indexed
+        // by the target value `b`. Getting these two round the wrong way is the
+        // single easiest mistake here, and it survives symmetric test data -- hence
+        // the asymmetric oracle and the `post ∘ transpose == pre` contract.
+        let mut res = vec![self.zero(); n];
+        for b in 0..n {
+            let mut acc = self.zero();
+            for a in 0..n {
+                let cell = rb[a * n + b];
+                if cell == self.zero() || sa[a] == self.zero() {
+                    continue;
+                }
+                let sub = self.post_image_at(sa[a], cell, level - 1);
+                acc = self.or_set(acc, sub);
+            }
+            res[b] = acc;
+        }
+        let node = self.create_set_node(l, &res);
+        self.rel_cache_put(RelOp::PostImage, set, rel, level, node);
+        node
+    }
+
+    fn pre_image_at(&mut self, set: NodeId, rel: NodeId, level: i64) -> NodeId {
+        if set == self.zero() || rel == self.zero() {
+            return self.zero();
+        }
+        if level < 0 {
+            return self.one();
+        }
+        if let Some(v) = self.rel_cache_get(RelOp::PreImage, set, rel, level) {
+            return v;
+        }
+        let l = level as usize;
+        let n = self.var(l).domain;
+        let sb = self.set_children(set, l);
+        let rb = self.rel_block(rel, l);
+        // Mirror of `post_image_at`: the target value `b` is quantified away and the
+        // result is indexed by the source value `a`.
+        let mut res = vec![self.zero(); n];
+        for a in 0..n {
+            let mut acc = self.zero();
+            for b in 0..n {
+                let cell = rb[a * n + b];
+                if cell == self.zero() || sb[b] == self.zero() {
+                    continue;
+                }
+                let sub = self.pre_image_at(sb[b], cell, level - 1);
+                acc = self.or_set(acc, sub);
+            }
+            res[a] = acc;
+        }
+        let node = self.create_set_node(l, &res);
+        self.rel_cache_put(RelOp::PreImage, set, rel, level, node);
+        node
+    }
+
     /// The boundary operator `B = R ∩ (L × U)`: the transitions of `R` that leave
     /// `L` and land in `U`.
     ///

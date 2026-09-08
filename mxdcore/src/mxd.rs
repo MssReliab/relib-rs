@@ -94,6 +94,8 @@ pub struct MxdManager {
     not_rel_cache: ComputeCache,
     cross_cache: ComputeCache,
     transpose_cache: ComputeCache,
+    post_cache: ComputeCache,
+    pre_cache: ComputeCache,
     // The full relation Ω × Ω restricted to levels 0..=i, indexed by i. Built
     // lazily; needed because complementing a relation cannot bottom out at the One
     // terminal (which denotes the *identity*, not the full relation).
@@ -168,6 +170,8 @@ impl MxdManager {
             not_rel_cache: ComputeCache::new(),
             cross_cache: ComputeCache::new(),
             transpose_cache: ComputeCache::new(),
+            post_cache: ComputeCache::new(),
+            pre_cache: ComputeCache::new(),
             full_rel: Vec::new(),
             freelist: Vec::new(),
         }
@@ -331,6 +335,8 @@ impl MxdManager {
         self.not_rel_cache.clear();
         self.cross_cache.clear();
         self.transpose_cache.clear();
+        self.post_cache.clear();
+        self.pre_cache.clear();
         // Memoized full relations may name reclaimed slots; they rebuild cheaply
         // and hash-cons back to the same nodes if those are still live.
         self.full_rel.clear();
@@ -467,6 +473,8 @@ impl MxdManager {
             RelOp::Not => &self.not_rel_cache,
             RelOp::Cross => &self.cross_cache,
             RelOp::Transpose => &self.transpose_cache,
+            RelOp::PostImage => &self.post_cache,
+            RelOp::PreImage => &self.pre_cache,
         }
     }
 
@@ -478,6 +486,8 @@ impl MxdManager {
             RelOp::Not => &mut self.not_rel_cache,
             RelOp::Cross => &mut self.cross_cache,
             RelOp::Transpose => &mut self.transpose_cache,
+            RelOp::PostImage => &mut self.post_cache,
+            RelOp::PreImage => &mut self.pre_cache,
         }
     }
 
@@ -489,6 +499,8 @@ impl MxdManager {
         self.not_rel_cache.clear();
         self.cross_cache.clear();
         self.transpose_cache.clear();
+        self.post_cache.clear();
+        self.pre_cache.clear();
     }
 }
 
@@ -501,6 +513,8 @@ pub(crate) enum RelOp {
     Not,
     Cross,
     Transpose,
+    PostImage,
+    PreImage,
 }
 
 impl HeaderKind {
