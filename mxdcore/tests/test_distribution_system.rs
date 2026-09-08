@@ -29,30 +29,30 @@ const REFERENCE: &[(usize, u128, u128)] = &[
 
 /// The relation the reference script uses: one component moves one step, either
 /// way.
-fn both_ways(sys: &mut System) -> Transitions {
+fn both_ways(sys: &System) -> Transitions {
     let dec = sys.degrade();
     let inc = sys.repair();
-    sys.union(dec, inc)
+    dec.union(&inc)
 }
 
 #[test]
 fn test_boundary_matches_meddly_reference() {
     for &(n, b1, b2) in REFERENCE {
-        let (mut sys, levels) = distribution_system(n);
-        let rel = both_ways(&mut sys);
+        let (sys, levels) = distribution_system(n);
+        let rel = both_ways(&sys);
 
         let mut got = Vec::new();
         for j in levels.interior() {
-            let up = sys.boundary_up(&levels, j, rel);
-            let down = sys.boundary_down(&levels, j, rel);
+            let up = rel.boundary_up(&levels, j);
+            let down = rel.boundary_down(&levels, j);
             // The relation is symmetric (every step has its reverse), so the two
             // directions must have equal counts -- as MEDDLY also reports.
             assert_eq!(
-                sys.count(up),
-                sys.count(down),
+                up.count(),
+                down.count(),
                 "n={n} j={j}: up and down boundaries should balance"
             );
-            got.push(sys.count(up));
+            got.push(up.count());
         }
         assert_eq!(got, vec![b1, b2], "n={n}: boundary cardinalities vs MEDDLY");
     }
@@ -65,10 +65,10 @@ fn test_boundary_matches_meddly_reference() {
 #[test]
 fn test_b1_is_n_squared() {
     for n in 2..=12usize {
-        let (mut sys, levels) = distribution_system(n);
-        let rel = both_ways(&mut sys);
-        let b = sys.boundary_up(&levels, 1, rel);
-        assert_eq!(sys.count(b), (n * n) as u128, "n={n}");
+        let (sys, levels) = distribution_system(n);
+        let rel = both_ways(&sys);
+        let b = rel.boundary_up(&levels, 1);
+        assert_eq!(b.count(), (n * n) as u128, "n={n}");
     }
 }
 
@@ -79,14 +79,14 @@ fn test_b1_is_n_squared() {
 #[test]
 fn test_system_is_actually_non_monotone() {
     let n = 8;
-    let (mut sys, levels) = distribution_system(n);
+    let (sys, levels) = distribution_system(n);
     let inc = sys.repair();
     let upper2 = levels.upper(2);
 
     // Under a monotone system every repair step out of the upper set would land
     // back inside it. Here some land outside, and that is exactly the overflow.
-    let image = sys.step_forward(upper2, inc);
-    let escaped = sys.difference_states(image, upper2);
+    let image = inc.step_forward(&upper2);
+    let escaped = image.difference(&upper2);
     assert_ne!(
         escaped,
         sys.no_states(),
@@ -98,7 +98,7 @@ fn test_system_is_actually_non_monotone() {
     let overflow = sys
         .levels_from_fold(0usize, |a, _, v| (a + v).min(7), |&a| usize::from(a >= 7))
         .upper(1);
-    let outside = sys.difference_states(escaped, overflow);
+    let outside = escaped.difference(&overflow);
     assert_eq!(
         outside,
         sys.no_states(),
@@ -108,9 +108,9 @@ fn test_system_is_actually_non_monotone() {
     // And the boundary does cross back down, which is what the downward boundary
     // measures.
     let dec = sys.degrade();
-    let rel = sys.union(dec, inc);
-    let down = sys.boundary_down(&levels, 2, rel);
-    assert!(sys.count(down) > 0);
+    let rel = dec.union(&inc);
+    let down = rel.boundary_down(&levels, 2);
+    assert!(down.count() > 0);
 }
 
 /// φ's own arithmetic, independent of any diagram: the drop is between Σ = 6 and

@@ -40,7 +40,7 @@ use std::time::Instant;
 /// saturates at 7 because every larger sum means the same thing (`3·7 = 21 > 20`);
 /// without that the diagram would grow with the sum's range for no benefit.
 fn distribution_system(n: usize) -> (System, Levels) {
-    let mut sys = System::new(&vec![3; n]);
+    let sys = System::new(&vec![3; n]);
     let levels = sys.levels_from_fold(
         0usize,
         |acc, _i, v| (acc + v).min(7),
@@ -74,12 +74,12 @@ fn main() {
 
     println!("n,relation,j,up_card,down_card,up_nodes,down_nodes,rel_card,rel_nodes,t_bnd_s");
     for n in ns {
-        let (mut sys, levels) = distribution_system(n);
+        let (sys, levels) = distribution_system(n);
 
         let dec = sys.degrade();
         let inc = sys.repair();
         let restart = sys.restart();
-        let looped = sys.union(dec, restart);
+        let looped = dec.union(&restart);
         let families = [
             ("dec", dec),
             ("inc", inc),
@@ -88,31 +88,31 @@ fn main() {
         ];
 
         for (name, rel) in families {
-            let rel_card = sys.count(rel);
-            let rel_nodes = sys.node_count(rel);
+            let rel_card = rel.count();
+            let rel_nodes = rel.node_count();
             for j in levels.interior() {
                 let t = Instant::now();
-                let up = sys.boundary_up(&levels, j, rel);
-                let down = sys.boundary_down(&levels, j, rel);
+                let up = rel.boundary_up(&levels, j);
+                let down = rel.boundary_down(&levels, j);
                 let secs = t.elapsed().as_secs_f64();
                 println!(
                     "{},{},{},{},{},{},{},{},{},{:.6}",
                     n,
                     name,
                     j,
-                    sys.count(up),
-                    sys.count(down),
-                    sys.node_count(up),
-                    sys.node_count(down),
+                    up.count(),
+                    down.count(),
+                    up.node_count(),
+                    down.node_count(),
                     rel_card,
                     rel_nodes,
                     secs
                 );
-                if name == "dec" && sys.count(up) > 0 {
+                if name == "dec" && up.count() > 0 {
                     eprintln!(
                         "n={n:2} j={j}: degrading crosses UP {} times -- only possible \
                          because φ is non-monotone",
-                        sys.count(up)
+                        up.count()
                     );
                 }
             }

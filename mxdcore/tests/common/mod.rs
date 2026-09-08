@@ -32,7 +32,7 @@ pub fn phi(sum: usize) -> usize {
 }
 
 pub fn distribution_system(n: usize) -> (System, Levels) {
-    let mut sys = System::new(&vec![STATES; n]);
+    let sys = System::new(&vec![STATES; n]);
     let levels = sys.levels_from_fold(0usize, |acc, _i, v| (acc + v).min(SAT), |&acc| phi(acc));
     (sys, levels)
 }
