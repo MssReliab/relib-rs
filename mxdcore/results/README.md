@@ -88,3 +88,87 @@ level set is `7n − 16` nodes on both (138 at `n = 22`).
 variable one level with an `n × n` block; MEDDLY interleaves an unprimed and a
 primed level. At `n = 22`, `R` is 22 nodes here and 87 there, and `B_2` is 275
 here against 563 there. Neither number is wrong; they count different things.
+
+---
+
+# Repair and restart boundaries (non-monotone)
+
+Same system, four transition relations instead of one, and both crossing
+directions per level. This is the case the boundary operator exists for: minimal
+path and cut vectors are undefined here, so none of these numbers has an
+alternative derivation.
+
+| | |
+|---|---|
+| `dec` | `x_i → x_i − 1`, one component degrades a step |
+| `inc` | `x_i → x_i + 1`, one component is repaired a step |
+| `restart` | `x_i → top`, one component is replaced outright |
+| `loop` | `dec ∪ restart`, degrade gradually, restore to new |
+
+```
+up_j   = R ∩ (L_j × U_j)   entering {φ ≥ j}
+down_j = R ∩ (U_j × L_j)   leaving it
+```
+
+- **Rust**: `cargo run --release -p relib-mxd --example repair_restart`
+  → `repair_restart_rust.csv` (this directory), `n = 2..22`.
+- **MEDDLY**: no script existed — `repair_relation` was exported by `MDDMinsol`
+  but had neither a script nor a test, so the reference was generated for this
+  comparison and is not part of the research repository's committed results.
+
+## Correctness
+
+**All 104 `(n, relation, level)` rows agree exactly** with MEDDLY over `n = 2..14`,
+for both directions and all four relations. `tests/test_repair_restart.rs` pins 32
+of them.
+
+## The numbers, at level 2 (`U_2 = {φ = 2}`, the productive band)
+
+| n | dec up | dec down | inc up | inc down | restart up | restart down |
+|---|---|---|---|---|---|---|
+| 4 | 16 | 16 | 16 | 16 | 20 | 28 |
+| 8 | 4 984 | 64 | 64 | 4 984 | 72 | 7 112 |
+| 12 | 86 328 | 144 | 144 | 86 328 | 156 | 113 652 |
+| 16 | 615 888 | 256 | 256 | 615 888 | 272 | 773 136 |
+| 20 | 2 790 720 | 400 | 400 | 2 790 720 | 420 | 3 391 500 |
+| 22 | 5 313 616 | 484 | 484 | 5 313 616 | 506 | 6 375 754 |
+
+## What is worth reading off them
+
+**Degrading enters the productive band, and repairing leaves it.** `dec up` and
+`inc down` are large and grow with `n`; in a monotone system both are identically
+zero. This is the overflow: above `ymax` the system is in `φ = 1`, so *reducing*
+production returns it to `φ = 2`, and *increasing* production pushes it out.
+
+**The two are the same fact.** `dec up = inc down` at every `n`, necessarily —
+`inc` is the converse of `dec`, so their boundaries are converses too. Pinned in
+`test_boundaries_are_converse_under_transpose` via `transpose`, so it is checked
+rather than observed.
+
+**Restart overshoots harder than gradual repair.** `restart down` exceeds
+`inc down` throughout (6 375 754 vs 5 313 616 at `n = 22`): sending a component
+straight to its top state leaves the productive band more often than raising it
+one step. That is the operational cost of restart-on-failure in this system, and
+it is visible only as a transition count — there is no state-based quantity it
+corresponds to.
+
+**Level 1 stays ordinary.** `dec up` is 0 at `j = 1` for every `n`: below `ymin`
+nothing overflows, so the system is locally monotone there. The non-monotonicity
+is confined to the upper band, and the boundary operator localises it.
+
+## Scale
+
+`|Ω| = 3^22 ≈ 3.1 × 10^10` at the top of the range, and nothing enumerates it.
+The whole `n = 2..22` sweep — four relations, two levels, both directions — runs
+in **0.37 s** wall clock.
+
+## The complement
+
+`relib-mss`'s `minpath` and `mincut` **refuse this φ**, returning `None`, which is
+correct: minimal vectors are not defined for a non-monotone structure function.
+`mss/tests/test_nonmonotone_minpath.rs` pins that, together with the check that
+the same construction *is* accepted at `n = 3`, where the sum cannot reach the
+overflow threshold and φ is monotone after all.
+
+So the two halves of this workspace say the same thing from both sides: for this
+system one route is undefined and the other is not.
