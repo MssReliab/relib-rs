@@ -48,6 +48,7 @@ name = "relib-mxd"
 version = "0.14.1"
 dependencies = [
  "relib-common",
+ "relib-mss",
 ]
 
 [[package]]
