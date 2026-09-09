@@ -1,4 +1,6 @@
-## Unreleased
+## relib-mxd 0.14.1
+
+First published version. The crate has existed in the workspace since 2026-09-08; everything below is its history up to this release.
 
 - **New crate.** Matrix Decision Diagrams (MxD): relations over multi-valued state vectors, and the sets they act on, in one forest. Intended for the multi-state boundary operator `B = R ∩ (L × U)`, which does not require the structure function to be monotone.
 - **`MxdManager`** — arena, hash-consing and mark-and-sweep `gc` in the style of `relib-mdd`'s `MddManager`. Two terminals only (`Zero`, `One`); the `Undet` of the MDD forest exists there for partial structure functions and has no meaning for a set or a relation. `defvar` declares a variable once and creates both a set header (`edge_num = n`) and a relation header (`edge_num = n²`) at that level, under distinct `HeaderId`s so the unique table cannot confuse the two.
