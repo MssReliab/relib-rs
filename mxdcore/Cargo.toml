@@ -21,5 +21,11 @@ name = "mxdcore"
 [dependencies]
 common = { path = "../common", version = "0.14.1", package = "relib-common" }
 
+# Only for the bridging-theorem check, which needs the minimal-cut-vector side.
+# `relib-mss` does not depend on this crate, so there is no cycle; and this crate
+# is `publish = false`, so a dev-dependency here reaches nothing published.
+[dev-dependencies]
+mss = { path = "../mss", package = "relib-mss" }
+
 [package.metadata.docs.rs]
 all-features = true
