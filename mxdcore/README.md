@@ -59,8 +59,10 @@ Part of the Rust engine behind the
 
 ## Publishing
 
-Not on crates.io: `publish = false` while the API is still moving. The crate is a
-workspace member and runs under `cargo test` like any other.
+Published to crates.io as `relib-mxd`, in lockstep with the rest of the workspace.
+Its `dev-dependency` on `relib-mss` puts it **last** in the publish order —
+`relib-common` → `relib-bdd` → `relib-mdd` → `relib-bss` → `relib-mss` → `relib-mxd`
+— even though `relib-common` is its only real dependency.
 
 ## License
 

@@ -4,10 +4,6 @@ description = "Matrix Decision Diagrams (MxD) for the relib reliability toolkit:
 keywords = ["decision-diagram", "mxd", "relation", "reliability"]
 categories = ["data-structures", "science"]
 readme = "README.md"
-# Not published yet: the API is still research-grade and moving, and a crates.io
-# version can never be re-uploaded. Remove this line to bring the crate into the
-# lockstep release, publishing it after `relib-common` (its only dependency).
-publish = false
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -22,10 +18,11 @@ name = "mxdcore"
 common = { path = "../common", version = "0.14.1", package = "relib-common" }
 
 # Only for the bridging-theorem check, which needs the minimal-cut-vector side.
-# `relib-mss` does not depend on this crate, so there is no cycle; and this crate
-# is `publish = false`, so a dev-dependency here reaches nothing published.
+# `relib-mss` does not depend on this crate, so there is no cycle — but it does
+# put this crate last in the publish order, after `relib-mss`, rather than
+# straight after `relib-common`.
 [dev-dependencies]
-mss = { path = "../mss", package = "relib-mss" }
+mss = { path = "../mss", version = "0.14.1", package = "relib-mss" }
 
 [package.metadata.docs.rs]
 all-features = true
