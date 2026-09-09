@@ -704,17 +704,45 @@ impl System {
         self.wrap_rel(node)
     }
 
-    /// The union over every component of the steps `pattern` admits for a component
-    /// with that many states.
+    /// "Exactly one component takes one of the steps `pattern` admits; every other
+    /// component holds."
+    ///
+    /// Built directly, bottom-up, in one `create_rel_node` per component. The
+    /// obvious way is to union a singleton per (component, step), but that is
+    /// `k · (states-1)` unions each costing `O(k · n²)` — 13.9 ms for a hundred
+    /// components of five states, to produce a hundred nodes.
+    ///
+    /// The structure is a chain instead. At component `i` the block says either
+    ///
+    /// - `i` takes an admitted step, and everything below it holds — the cell
+    ///   points at `One`, which as a relation *is* the identity; or
+    /// - `i` holds (the diagonal), and something below it stepped — the cell points
+    ///   at the chain built so far.
+    ///
+    /// so the whole relation is `k` node creations and no apply at all.
     fn steps(&self, pattern: &dyn Fn(usize) -> Vec<(usize, usize)>) -> Transitions {
-        let mut acc = self.mxd.borrow().zero();
+        let (zero, one) = {
+            let m = self.mxd.borrow();
+            (m.zero(), m.one())
+        };
+        // `below` denotes "some component strictly below this level has stepped,
+        // and the rest hold". Nothing has stepped yet at the bottom.
+        let mut below = zero;
         for i in 0..self.states.len() {
-            for (from, to) in pattern(self.states[i]) {
-                let one = self.single(i, from, to);
-                acc = self.mxd.borrow_mut().or_rel(acc, one.node);
+            let n = self.states[i];
+            let mut block = vec![zero; n * n];
+            for (from, to) in pattern(n) {
+                debug_assert_ne!(from, to, "a step must move the component");
+                // This component steps; everything below is the identity.
+                block[from * n + to] = one;
             }
+            // This component holds; something below stepped.
+            for a in 0..n {
+                block[a * n + a] = below;
+            }
+            below = self.mxd.borrow_mut().create_rel_node(i, &block);
         }
-        self.wrap_rel(acc)
+        self.wrap_rel(below)
     }
 
     /// Nothing moves: the identity relation.

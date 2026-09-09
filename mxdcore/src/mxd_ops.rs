@@ -361,21 +361,27 @@ impl MxdManager {
         }
         let l = level as usize;
         let n = self.var(l).domain;
-        let sa = self.set_children(set, l);
-        let rb = self.rel_block(rel, l);
+        let zero = self.zero();
         // The source value `a` is what gets quantified away; the result is indexed
         // by the target value `b`. Getting these two round the wrong way is the
         // single easiest mistake here, and it survives symmetric test data -- hence
         // the asymmetric oracle and the `post ∘ transpose == pre` contract.
-        let mut res = vec![self.zero(); n];
+        //
+        // Operand cells are read one at a time rather than collected: each
+        // recursive step needs `&mut self`, so no borrow survives it anyway.
+        let mut res = vec![zero; n];
         for b in 0..n {
-            let mut acc = self.zero();
+            let mut acc = zero;
             for a in 0..n {
-                let cell = rb[a * n + b];
-                if cell == self.zero() || sa[a] == self.zero() {
+                let cell = self.rel_cell(rel, l, a, b);
+                if cell == zero {
                     continue;
                 }
-                let sub = self.post_image_at(sa[a], cell, level - 1);
+                let sa = self.set_child(set, l, a);
+                if sa == zero {
+                    continue;
+                }
+                let sub = self.post_image_at(sa, cell, level - 1);
                 acc = self.or_set(acc, sub);
             }
             res[b] = acc;
@@ -397,19 +403,22 @@ impl MxdManager {
         }
         let l = level as usize;
         let n = self.var(l).domain;
-        let sb = self.set_children(set, l);
-        let rb = self.rel_block(rel, l);
+        let zero = self.zero();
         // Mirror of `post_image_at`: the target value `b` is quantified away and the
         // result is indexed by the source value `a`.
-        let mut res = vec![self.zero(); n];
+        let mut res = vec![zero; n];
         for a in 0..n {
-            let mut acc = self.zero();
+            let mut acc = zero;
             for b in 0..n {
-                let cell = rb[a * n + b];
-                if cell == self.zero() || sb[b] == self.zero() {
+                let cell = self.rel_cell(rel, l, a, b);
+                if cell == zero {
                     continue;
                 }
-                let sub = self.pre_image_at(sb[b], cell, level - 1);
+                let sb = self.set_child(set, l, b);
+                if sb == zero {
+                    continue;
+                }
+                let sub = self.pre_image_at(sb, cell, level - 1);
                 acc = self.or_set(acc, sub);
             }
             res[a] = acc;
@@ -426,8 +435,74 @@ impl MxdManager {
     /// the point — it is what lets repair and restart be analysed the same way as
     /// failure.
     pub fn boundary(&mut self, lower: NodeId, upper: NodeId, rel: NodeId) -> NodeId {
-        let product = self.cross(lower, upper);
-        self.and_rel(product, rel)
+        let top = self.num_vars() as i64 - 1;
+        let mut memo = BddHashMap::default();
+        self.boundary_at(lower, upper, rel, top, &mut memo)
+    }
+
+    /// Three-way recursion over `lower`, `upper` and `rel` at once.
+    ///
+    /// The obvious implementation is `and_rel(cross(lower, upper), rel)`, and that
+    /// is what this replaced. The product is the problem: it is dense where the
+    /// intersection is sparse, so most of the work goes into building nodes the
+    /// very next step throws away. On the distribution system at 60 components of
+    /// five states, `cross` alone was 451 ms of a 454 ms boundary — it produced
+    /// 23 072 nodes for a result of 2 763.
+    ///
+    /// Descending all three together prunes instead: a cell is skipped unless the
+    /// relation admits that transition **and** the source is in `lower` **and** the
+    /// target is in `upper`. For the sparse relations this is used with — one
+    /// component moving at a time — that removes almost every cell.
+    ///
+    /// The memo is a `BddHashMap` rather than the shared [`ComputeCache`], because
+    /// the key is `(lower, upper, rel, level)`: four words where that table holds
+    /// three. A hash lookup costs more than its array index, which is the price of
+    /// not building the product.
+    fn boundary_at(
+        &mut self,
+        lower: NodeId,
+        upper: NodeId,
+        rel: NodeId,
+        level: i64,
+        memo: &mut BddHashMap<(NodeId, NodeId, NodeId, i64), NodeId>,
+    ) -> NodeId {
+        let zero = self.zero();
+        if lower == zero || upper == zero || rel == zero {
+            return zero;
+        }
+        if level < 0 {
+            return self.one();
+        }
+        if let Some(&hit) = memo.get(&(lower, upper, rel, level)) {
+            return hit;
+        }
+        let l = level as usize;
+        let n = self.var(l).domain;
+        let mut block = vec![zero; n * n];
+        // Read one operand cell at a time rather than collecting three child
+        // vectors: this is the hot recursion, and each recursive step needs
+        // `&mut self`, so nothing can be borrowed across it anyway. Only the
+        // output block is allocated.
+        for a in 0..n {
+            let la = self.set_child(lower, l, a);
+            if la == zero {
+                continue;
+            }
+            for b in 0..n {
+                let cell = self.rel_cell(rel, l, a, b);
+                if cell == zero {
+                    continue;
+                }
+                let ub = self.set_child(upper, l, b);
+                if ub == zero {
+                    continue;
+                }
+                block[a * n + b] = self.boundary_at(la, ub, cell, level - 1, memo);
+            }
+        }
+        let node = self.create_rel_node(l, &block);
+        memo.insert((lower, upper, rel, level), node);
+        node
     }
 
     fn not_rel_at(&mut self, f: NodeId, level: i64) -> NodeId {

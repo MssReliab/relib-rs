@@ -401,6 +401,40 @@ impl MxdManager {
         }
     }
 
+    /// Child `a` of a **set** node read at `level`, expanding a skipped level as
+    /// the don't-care it means.
+    ///
+    /// The allocation-free counterpart of collecting the whole child vector: the
+    /// hot recursions read one child, recurse (which needs `&mut self`, so no
+    /// borrow may be held), then read the next. Costs a slot index and an enum
+    /// match per call.
+    #[inline]
+    pub(crate) fn set_child(&self, node: NodeId, level: Level, a: usize) -> NodeId {
+        match self.get_node(&node) {
+            Some(Node::NonTerminal(f)) if self.is_at(f, level, false) => f.edge(a),
+            _ => node,
+        }
+    }
+
+    /// Cell `(a, b)` of a **relation** node read at `level`, expanding a skipped
+    /// level as the identity it means.
+    #[inline]
+    pub(crate) fn rel_cell(&self, node: NodeId, level: Level, a: usize, b: usize) -> NodeId {
+        let n = self.vars[level].domain;
+        match self.get_node(&node) {
+            Some(Node::NonTerminal(f)) if self.is_at(f, level, true) => f.edge(a * n + b),
+            // Skipped: the component does not move, so only the diagonal exists.
+            _ if a == b => node,
+            _ => self.zero,
+        }
+    }
+
+    #[inline]
+    fn is_at(&self, f: &NonTerminalMxD, level: Level, want_rel: bool) -> bool {
+        let kind = self.kinds[f.headerid()];
+        kind.level() == level && kind.is_rel() == want_rel
+    }
+
     /// Number of live (non-reclaimed) node slots, including terminals.
     #[inline]
     pub fn live_node_count(&self) -> usize {
