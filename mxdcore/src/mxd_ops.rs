@@ -445,9 +445,11 @@ impl MxdManager {
     /// The obvious implementation is `and_rel(cross(lower, upper), rel)`, and that
     /// is what this replaced. The product is the problem: it is dense where the
     /// intersection is sparse, so most of the work goes into building nodes the
-    /// very next step throws away. On the distribution system at 60 components of
-    /// five states, `cross` alone was 451 ms of a 454 ms boundary — it produced
-    /// 23 072 nodes for a result of 2 763.
+    /// very next step throws away. How much that costs depends on how large the
+    /// level sets are: on the distribution system at 60 components of five states
+    /// it is ~2.6× (4.9 ms of product against 0.75 ms fused), and on a variant
+    /// whose accumulator ranges over 20 rather than 7 — level sets of 1125 nodes
+    /// instead of 411 — it is ~530× (486 ms against 0.92 ms).
     ///
     /// Descending all three together prunes instead: a cell is skipped unless the
     /// relation admits that transition **and** the source is in `lower` **and** the

@@ -48,45 +48,90 @@ enumerates the state space.
 
 ## Timing
 
-Seconds; Julia from the committed combined run (which amortises warm-up across all
-`n` and is therefore the *more favourable* of its two measurements — running it one
-process per `n` gives ~9 ms at `n = 22` rather than ~4 ms). Rust is the median of
-five runs.
+**Superseded, and the previous version was wrong in both directions.** The table
+that stood here until 2026-09-09 said this crate was "3–6× faster" than MEDDLY.
+It was not a like-for-like measurement:
 
-| n | `t_rel` MEDDLY | `t_rel` rust | ×   | `t_bnd` MEDDLY | `t_bnd` rust | ×   |
+- The MEDDLY column came from `MDDMinsol/scripts/boundary_nonmonotone.jl`, whose
+  timed block also derives the level sets from φ (`sys.phi >= j`) and counts nodes
+  twice per level. The Rust column did neither inside its clock. MEDDLY was being
+  charged for work the Rust side was not doing.
+- The Rust column predated the optimisations in `#13` and was never refreshed.
+
+`tools/bench_meddly.jl` and `examples/bench_boundary.rs` replace it. Both time the
+same thing: level sets built beforehand, then every level's boundary in both
+directions plus its cardinality. Raw data in `bench_meddly.csv` / `bench_rust.csv`.
+
+### The comparison has to be decomposed
+
+Three separate effects, and merging them into one ratio is what produced the old
+claim. Both phases are therefore measured **two ways on the Rust side**: once with
+the algorithm MEDDLY is driven with, once with this crate's.
+
+| | |
+|---|---|
+| relation, `union` | a singleton per (component, step), unioned in — what `MDDMinsol` does |
+| relation, `chain` | built directly, one node per component |
+| boundary, `product` | `R ∩ cross(L, U)`, materialising the product — what `MDDMinsol` does |
+| boundary, `fused` | a three-way recursion that never builds the product |
+
+`dec ∪ restart`, MEDDLY taking the faster of its two protocols (one process per
+condition, or all conditions in one process) so the comparison is conservative:
+
+| n | states | MEDDLY | rust, same algorithm | engine | rust, best | net |
 |---|---|---|---|---|---|---|
-| 8  | 0.000142 | 0.000049 | 2.9 | 0.000875 | 0.000277 | 3.2 |
-| 12 | 0.000292 | 0.000091 | 3.2 | 0.001558 | 0.000443 | 3.5 |
-| 16 | 0.000522 | 0.000125 | 4.2 | 0.002244 | 0.000576 | 3.9 |
-| 20 | 0.000808 | 0.000182 | 4.4 | 0.003132 | 0.000639 | 4.9 |
-| 22 | 0.000963 | 0.000204 | 4.7 | 0.004076 | 0.000682 | 6.0 |
+| **relation** | | | | | | |
+| 8 | 3 | 34 µs | 22 µs | 1.5× | 2 µs | 15.5× |
+| 22 | 3 | 99 µs | 159 µs | **MEDDLY 1.6× faster** | 7 µs | 15.0× |
+| 60 | 3 | 298 µs | 939 µs | **MEDDLY 3.1× faster** | 20 µs | 14.6× |
+| 100 | 3 | 509 µs | 2498 µs | **MEDDLY 4.9× faster** | 24 µs | 20.8× |
+| 16 | 5 | 168 µs | 186 µs | **MEDDLY 1.1× faster** | 7 µs | 24.2× |
+| 60 | 5 | 678 µs | 2683 µs | **MEDDLY 4.0× faster** | 25 µs | 26.6× |
+| **boundary** | | | | | | |
+| 8 | 3 | 58 µs | 101 µs | **MEDDLY 1.7× faster** | 50 µs | 1.2× |
+| 22 | 3 | 212 µs | 495 µs | **MEDDLY 2.3× faster** | 187 µs | 1.1× |
+| 60 | 3 | 594 µs | 1208 µs | **MEDDLY 2.0× faster** | 457 µs | 1.3× |
+| 100 | 3 | 1025 µs | 2276 µs | **MEDDLY 2.2× faster** | 814 µs | 1.3× |
+| 16 | 5 | 231 µs | 418 µs | **MEDDLY 1.8× faster** | 158 µs | 1.5× |
+| 60 | 5 | 895 µs | 1870 µs | **MEDDLY 2.1× faster** | 722 µs | 1.2× |
 
-### What this does and does not say
+### What it says
 
-These are sub-millisecond measurements of two quite different systems, so read
-the ratios as an order of magnitude, not a benchmark result.
+**Run the same algorithm on both and MEDDLY is faster** — about 2× on the
+boundary throughout, and 1.5–5× on relation construction, the gap widening with
+`n`. That is the engine comparison, and it does not favour this crate.
 
-- It is **end-to-end wall clock for the same computation**, not a controlled
-  comparison of algorithms. The Julia side's timed path is C++ MEDDLY reached
-  through `ccall`; almost none of it is Julia.
-- The two use **different relation representations**, and for this particular `R`
-  the difference is large in this crate's favour: fusing a variable's source and
-  target into one node makes "component `i` steps up or down" a single node, so
-  `R` costs `n` nodes here against MEDDLY's `4n - 1`. Part of the speed is that,
-  not implementation quality.
-- `t_build` / `t_phi` are **not** compared. MEDDLY builds φ as an MTMDD and
-  thresholds it; this crate has no value-carrying diagram and builds the level
-  sets `{x : φ(Σxᵢ) ⋛ j}` directly. Different work.
+**The end-to-end win is algorithmic, not engine.** Relation construction is
+15–27× faster here because it builds a chain instead of unioning singletons, and
+the boundary is 1.1–1.5× faster because it never materialises the product. Both
+are caller-side choices: the chain is available to a MEDDLY user immediately, and
+the fused boundary would be too if MEDDLY grew an operation for it (it has
+`CROSS`, `INTERSECTION` and the images, but nothing that fuses them).
 
-## A note on the `live_nodes` column
+So: **"the Rust pipeline as written beats the Julia pipeline as written, by 1.1–1.5×
+on the boundary and 15–27× on relation construction, while the C++ engine
+underneath MEDDLY is about twice as fast as this one."** Anything shorter than
+that is misleading.
 
-`boundary_nonmonotone_rust.csv` carries a `live_nodes` column. It is the size of
-the **whole arena**, intermediates included — not a property of any result. It
-therefore changes when the example is restructured even though nothing computed
-changes: building `degrade` and `repair` as separate relations and then uniting
-them retains a few more intermediates than accumulating one union does, which
-moved the column by about `n` without moving a single cardinality or per-diagram
-node count. Read `b_nodes` / `bd_nodes` for the size of an actual result.
+### Caveats that still apply
+
+- Sub-millisecond measurements. Read the ratios as an order of magnitude.
+- These operations are **memoized**, so timing the same system repeatedly measures
+  the cache. Every number above is from a cold run — the harness rebuilds the
+  system for each timed pass. An earlier draft did not, and reported the fused
+  boundary as *slower* than the product one.
+- The two use different relation representations (`n × n` fused blocks here,
+  interleaved unprimed/primed in MEDDLY), so part of the engine gap is
+  representation rather than implementation quality.
+- φ construction is not compared. MEDDLY builds it as an MTMDD and thresholds;
+  this crate builds the level sets directly. Different work.
+
+### Correctness across the whole grid
+
+Cardinalities agree on **all 45 `(n, states, relation)` conditions** — `n` up to
+100, three to five states per component, three relation families. That is a wider
+check than the 42-row and 104-row agreements recorded above, and it is the part of
+this comparison that is not sensitive to how anything was measured.
 
 ## Node counts
 
